@@ -3,3 +3,6 @@ morozov@infway.ru — Морозов
 kostia_k@bk.ru — Крашенинников
 
 https://drive.google.com/drive/folders/1NPsHfSSYqm4PZa70IuJQ5x9wj9nL2Sb6
+
+ssh -l user74 -p 1858 infway.ru
+pass B8KHXFERHO
