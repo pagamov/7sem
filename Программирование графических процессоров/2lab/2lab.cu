@@ -45,11 +45,11 @@ public:
     ~Image() {free(pixels);}
     void load(string filename) {
         FILE * in = fopen(filename.c_str(), "rb");
-        if (in == NULL) {fprintf(stderr, "cant open file", 30);}
+        // if (in == NULL) {fprintf(stderr, "cant open file", 30);}
         fread(&x,4,1,in);
         fread(&y,4,1,in);
-        if (x == 1) {fprintf(stderr, "cant open file 1", 30);}
-        if (y == 1) {fprintf(stderr, "cant open file 2", 30);}
+        // if (x == 1) {fprintf(stderr, "cant open file 1", 30);}
+        // if (y == 1) {fprintf(stderr, "cant open file 2", 30);}
         pixels = (Pixel *)malloc(sizeof(Pixel)*x*y);
         for (int i = 0; i < x * y; i++) {
             fread(&pixels[i].r,1,1,in);
