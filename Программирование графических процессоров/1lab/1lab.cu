@@ -4,9 +4,7 @@
 #include <string>
 
 __global__ void sub (const double *v1, const double *v2, double *res, int n) {
-    int idx = threadIdx.x;
-    int offset = blockDim.x;
-    for (int i = idx; i < n; i += offset) {
+    for (int i = threadIdx.x + blockIdx.x * blockDim.x; i < n; i += gridDim.x * blockDim.x) {
         res[i] = v1[i] - v2[i];
     }
 }
