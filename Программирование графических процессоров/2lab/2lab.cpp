@@ -3,6 +3,8 @@
 #include <fstream>
 #include <string>
 #include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 using namespace std;
 
@@ -195,28 +197,30 @@ template <typename T>
 vector <Pixel> prewitt(T& im) {
     vector <Pixel> pixels;
     vector <float> Grag;
-    unsigned char newc;
+    float newc;
+    unsigned char res;
     float maxGrag = 0;
+    // for (int j = 0; j < im.y; j++) {
+    //     for (int i = 0; i < im.x; i++) {
+    //         float gx = im.Gx(i, j);
+    //         float gy = im.Gy(i, j);
+    //         float g = sqrt(gx*gx + gy*gy);
+    //         if (g > maxGrag) {
+    //             maxGrag = g;
+    //         }
+    //         // newc = (unsigned char) g;
+    //         // pixels.push_back(Pixel(newc, newc, newc, im.pixels[i + im.x * j].a));
+    //     }
+    // }
+    // cout << maxGrag << endl;
     for (int j = 0; j < im.y; j++) {
         for (int i = 0; i < im.x; i++) {
             float gx = im.Gx(i, j);
             float gy = im.Gy(i, j);
             float g = sqrt(gx*gx + gy*gy);
-            if (g > maxGrag) {
-                maxGrag = g;
-            }
-            // newc = (unsigned char) g;
-            // pixels.push_back(Pixel(newc, newc, newc, im.pixels[i + im.x * j].a));
-        }
-    }
-    cout << maxGrag << endl;
-    for (int j = 0; j < im.y; j++) {
-        for (int i = 0; i < im.x; i++) {
-            float gx = im.Gx(i, j);
-            float gy = im.Gy(i, j);
-            float g = sqrt(gx*gx + gy*gy);
-            newc = (unsigned char) ((g / maxGrag) * 255);
-            pixels.push_back(Pixel(newc, newc, newc, im.pixels[i + im.x * j].a));
+            newc = min(255.0, g);
+            res = (unsigned char) newc;
+            pixels.push_back(Pixel(res, res, res, im.pixels[i + im.x * j].a));
         }
     }
     return pixels;

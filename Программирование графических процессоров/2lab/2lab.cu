@@ -29,7 +29,7 @@ __global__ void prewitt (int x, int y, Pixel * pic, Pixel * res) {
         for (int j=0;j<3;j++) gy += (float)pic[sx2[j]+sy2[0]*x].r;
         for (int j=0;j<3;j++) gy -= (float)pic[sx2[j]+sy2[1]*x].r;
         
-        float g = min(255.0,sqrt(gx*gx + gy*gy));
+        float g = min((float)255.0,sqrt(gx*gx + gy*gy));
         
         res[i].r = (unsigned char)g;
         res[i].g = (unsigned char)g;
@@ -48,8 +48,6 @@ public:
         // if (in == NULL) {fprintf(stderr, "cant open file", 30);}
         fread(&x,4,1,in);
         fread(&y,4,1,in);
-        // if (x == 1) {fprintf(stderr, "cant open file 1", 30);}
-        // if (y == 1) {fprintf(stderr, "cant open file 2", 30);}
         pixels = (Pixel *)malloc(sizeof(Pixel)*x*y);
         for (int i = 0; i < x * y; i++) {
             fread(&pixels[i].r,1,1,in);
@@ -74,9 +72,10 @@ public:
     }
     void ink() {
         for (int i = 0; i < x*y; i++) {
-            unsigned char mean = (unsigned char)((float)pixels[i].r * 0.299 + \
-                                   (float)pixels[i].g * 0.587 + \
-                                   (float)pixels[i].b * 0.114);
+            float newx = (float)pixels[i].r * 0.299 + \
+                               (float)pixels[i].g * 0.587 + \
+                               (float)pixels[i].b * 0.114;
+            unsigned char mean = (unsigned char) min((float)255.0,newx);
             pixels[i].r = mean; pixels[i].g = mean; pixels[i].b = mean;
         }
     }
