@@ -45,9 +45,10 @@ public:
     ~Image() {free(pixels);}
     void load(string filename) {
         FILE * in = fopen(filename.c_str(), "rb");
-        // if (in == NULL) {fprintf(stderr, "cant open file", 30);}
+        if (in == NULL) {fprintf(stderr, "%s", "cant open file\n");}
         fread(&x,4,1,in);
         fread(&y,4,1,in);
+        // fprintf(stderr, "%s, %d, %d", "size: ", x, y);
         pixels = (Pixel *)malloc(sizeof(Pixel)*x*y);
         for (int i = 0; i < x * y; i++) {
             fread(&pixels[i].r,1,1,in);
@@ -59,7 +60,7 @@ public:
     }
     void save(string filename) {
         FILE * out = fopen(filename.c_str(), "wb");
-        if (out == NULL) {cerr << "cant open file" << endl;}
+        if (out == NULL) {fprintf(stderr, "%s", "cant open file\n");}
         fwrite(&x,4,1,out);
         fwrite(&y,4,1,out);
         for (int i = 0; i < x * y; i++) {
@@ -81,6 +82,49 @@ public:
     }
 };
 
+void prewitt(Pixel * im, Pixel * res, int x, int y) {
+    for (int j = 0; j < y; j++) {
+        for (int i = 0; i < x; i++) {
+            float gx = \
+            (float)im[max(min(i+1,x-1),0)+x*max(min(j,y-1),0)].r + \
+            (float)im[max(min(i+1,x-1),0)+x*max(min(j+1,y-1),0)].r + \
+            (float)im[max(min(i+1,x-1),0)+x*max(min(j-1,y-1),0)].r - \
+            (float)im[max(min(i-1,x-1),0)+x*max(min(j,y-1),0)].r - \
+            (float)im[max(min(i-1,x-1),0)+x*max(min(j+1,y-1),0)].r - \
+            (float)im[max(min(i-1,x-1),0)+x*max(min(j-1,y-1),0)].r;
+            
+            float gy = \
+            (float)im[max(min(i,x-1),0)+x*max(min(j+1,y-1),0)].r + \
+            (float)im[max(min(i-1,x-1),0)+x*max(min(j+1,y-1),0)].r + \
+            (float)im[max(min(i+1,x-1),0)+x*max(min(j+1,y-1),0)].r - \
+            (float)im[max(min(i,x-1),0)+x*max(min(j-1,y-1),0)].r - \
+            (float)im[max(min(i-1,x-1),0)+x*max(min(j-1,y-1),0)].r - \
+            (float)im[max(min(i+1,x-1),0)+x*max(min(j-1,y-1),0)].r;
+            
+            float g = sqrt(gx*gx + gy*gy);
+            float newc = min(255.0, g);
+            int inx = i + x*j;
+            res[inx].r = (unsigned char) newc;
+            res[inx].g = (unsigned char) newc;
+            res[inx].b = (unsigned char) newc;
+            res[inx].a = im[inx].a;
+        }
+    }
+}
+
+int check(Pixel * im, Pixel * res, int x, int y) {
+    int f = 0;
+    for (int j = 0; j < y; j++) {
+        for (int i = 0; i < x; i++) {
+            if (im[i + x*j].r != res[i + x*j].r) {
+                f = 1;
+                fprintf(stderr, "%s, %d, %d", "cw", i, j);
+            }
+        }
+    }
+    return f;
+}
+
 int main() {
     string filename1, filename2;
     cin >> filename1 >> filename2;
@@ -100,6 +144,17 @@ int main() {
     cudaDeviceSynchronize();
     
     cudaMemcpy(pic.pixels, dev_res, sizeof(Pixel) * pic.x * pic.y, cudaMemcpyDeviceToHost);
+    
+    // Image pic2;
+    // pic2.load(string(filename1));
+    // pic2.ink();
+    // 
+    // Pixel * resp2 = (Pixel *)malloc(sizeof(Pixel) * pic2.x * pic2.y);
+    // prewitt(pic2.pixels, resp2, pic2.x, pic2.y);
+    // if (check(pic.pixels, resp2, pic2.x, pic2.y) == 1) {
+    //     fprintf(stderr, "%s", "ans dont match\n");
+    // }
+    // free(resp2);
 
     cudaFree(dev_pic);
     cudaFree(dev_res);
