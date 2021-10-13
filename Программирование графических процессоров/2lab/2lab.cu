@@ -1,164 +1,115 @@
-#include <iostream>
-#include <vector>
-#include <fstream>
-#include <string>
-#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <iostream>
+#include <string>
+#include <math.h>
+
+#define CSC(call)  													\
+do {																\
+	cudaError_t res = call;											\
+	if (res != cudaSuccess) {										\
+		fprintf(stderr, "ERROR in %s:%d. Message: %s\n",			\
+				__FILE__, __LINE__, cudaGetErrorString(res));		\
+		exit(0);													\
+	}																\
+} while(0)
 
 using namespace std;
 
-struct Pixel {unsigned char r, g, b, a;};
+// текстурная ссылка <тип элементов, размерность, режим нормализации>
+texture<uchar4, 2, cudaReadModeElementType> tex;
 
-__global__ void prewitt (int x, int y, Pixel * pic, Pixel * res) {
-    for (int i = threadIdx.x + blockIdx.x * blockDim.x; i < x * y; i += gridDim.x * blockDim.x) {
-        int yt = i / x;
-        int xt = i - yt * x;
-        float gx = 0;
-        float gy = 0;
-        
-        int sx1[2] = {max(min(xt+1, x-1),0),max(min(xt-1, x-1),0)};
-        int sy1[3] = {max(min(yt, y-1),0),max(min(yt+1, y-1),0),max(min(yt-1, y-1),0)};
-        
-        for (int j=0;j<3;j++) gx += (float)pic[sx1[0]+sy1[j]*x].r;
-        for (int j=0;j<3;j++) gx -= (float)pic[sx1[1]+sy1[j]*x].r;
-        
-        int sx2[3] = {max(min(xt, x-1),0),max(min(xt-1, x-1),0),max(min(xt+1, x-1),0)};
-        int sy2[2] = {max(min(yt+1, y-1),0),max(min(yt-1, y-1),0)};
-        
-        for (int j=0;j<3;j++) gy += (float)pic[sx2[j]+sy2[0]*x].r;
-        for (int j=0;j<3;j++) gy -= (float)pic[sx2[j]+sy2[1]*x].r;
-        
-        float g = min((float)255.0,sqrt(gx*gx + gy*gy));
-        
-        res[i].r = (unsigned char)g;
-        res[i].g = (unsigned char)g;
-        res[i].b = (unsigned char)g;
-        res[i].a = pic[i].a;
-    }
-}
+__global__ void kernel(uchar4 * out, int w, int h) {
+	int idx = blockDim.x * blockIdx.x + threadIdx.x;
+	int idy = blockDim.y * blockIdx.y + threadIdx.y;
+	int offsetx = blockDim.x * gridDim.x;
+	int offsety = blockDim.y * gridDim.y;
+	int x, y;
+	uchar4 p;
+    uchar4 piv;
 
-class Image {
-public:
-    int x,y;
-    Pixel * pixels;
-    ~Image() {free(pixels);}
-    void load(string filename) {
-        FILE * in = fopen(filename.c_str(), "rb");
-        if (in == NULL) {fprintf(stderr, "%s", "cant open file\n");}
-        fread(&x,4,1,in);
-        fread(&y,4,1,in);
-        // fprintf(stderr, "%s, %d, %d", "size: ", x, y);
-        pixels = (Pixel *)malloc(sizeof(Pixel)*x*y);
-        for (int i = 0; i < x * y; i++) {
-            fread(&pixels[i].r,1,1,in);
-            fread(&pixels[i].g,1,1,in);
-            fread(&pixels[i].b,1,1,in);
-            fread(&pixels[i].a,1,1,in);
-        }
-        fclose(in);
-    }
-    void save(string filename) {
-        FILE * out = fopen(filename.c_str(), "wb");
-        if (out == NULL) {fprintf(stderr, "%s", "cant open file\n");}
-        fwrite(&x,4,1,out);
-        fwrite(&y,4,1,out);
-        for (int i = 0; i < x * y; i++) {
-            fwrite(&pixels[i].r,1,1,out);
-            fwrite(&pixels[i].g,1,1,out);
-            fwrite(&pixels[i].b,1,1,out);
-            fwrite(&pixels[i].a,1,1,out);
-        }
-        fclose(out);
-    }
-    void ink() {
-        for (int i = 0; i < x*y; i++) {
-            float newx = (float)pixels[i].r * 0.299 + \
-                               (float)pixels[i].g * 0.587 + \
-                               (float)pixels[i].b * 0.114;
-            unsigned char mean = (unsigned char) min((float)255.0,newx);
-            pixels[i].r = mean; pixels[i].g = mean; pixels[i].b = mean;
-        }
-    }
-};
-
-void prewitt(Pixel * im, Pixel * res, int x, int y) {
-    for (int j = 0; j < y; j++) {
-        for (int i = 0; i < x; i++) {
-            float gx = \
-            (float)im[max(min(i+1,x-1),0)+x*max(min(j,y-1),0)].r + \
-            (float)im[max(min(i+1,x-1),0)+x*max(min(j+1,y-1),0)].r + \
-            (float)im[max(min(i+1,x-1),0)+x*max(min(j-1,y-1),0)].r - \
-            (float)im[max(min(i-1,x-1),0)+x*max(min(j,y-1),0)].r - \
-            (float)im[max(min(i-1,x-1),0)+x*max(min(j+1,y-1),0)].r - \
-            (float)im[max(min(i-1,x-1),0)+x*max(min(j-1,y-1),0)].r;
+    for (y = idy; y < h; y += offsety) {
+		for (x = idx; x < w; x += offsetx) {
+			p = tex2D(tex, x, y);
             
-            float gy = \
-            (float)im[max(min(i,x-1),0)+x*max(min(j+1,y-1),0)].r + \
-            (float)im[max(min(i-1,x-1),0)+x*max(min(j+1,y-1),0)].r + \
-            (float)im[max(min(i+1,x-1),0)+x*max(min(j+1,y-1),0)].r - \
-            (float)im[max(min(i,x-1),0)+x*max(min(j-1,y-1),0)].r - \
-            (float)im[max(min(i-1,x-1),0)+x*max(min(j-1,y-1),0)].r - \
-            (float)im[max(min(i+1,x-1),0)+x*max(min(j-1,y-1),0)].r;
+            float gx = 0;
+            float gy = 0;
             
-            float g = sqrt(gx*gx + gy*gy);
-            float newc = min(255.0, g);
-            int inx = i + x*j;
-            res[inx].r = (unsigned char) newc;
-            res[inx].g = (unsigned char) newc;
-            res[inx].b = (unsigned char) newc;
-            res[inx].a = im[inx].a;
-        }
-    }
-}
-
-int check(Pixel * im, Pixel * res, int x, int y) {
-    int f = 0;
-    for (int j = 0; j < y; j++) {
-        for (int i = 0; i < x; i++) {
-            if (im[i + x*j].r != res[i + x*j].r) {
-                f = 1;
-                fprintf(stderr, "%s, %d, %d", "cw", i, j);
+            int sx1[2] = {max(min(x+1, w-1),0),max(min(x-1, w-1),0)};
+            int sy1[3] = {max(min(y, h-1),0),max(min(y+1, h-1),0),max(min(y-1, h-1),0)};
+            
+            for (int j=0;j<3;j++) {
+                piv = tex2D(tex, sx1[0], sy1[j]);
+                gx += (float)piv.x * 0.299 + (float)piv.y * 0.587 + (float)piv.z * 0.114;
+                piv = tex2D(tex, sx1[1], sy1[j]);
+                gx -= (float)piv.x * 0.299 + (float)piv.y * 0.587 + (float)piv.z * 0.114;
             }
-        }
+            
+            int sx2[3] = {max(min(x, w-1),0),max(min(x-1, w-1),0),max(min(x+1, w-1),0)};
+            int sy2[2] = {max(min(y+1, h-1),0),max(min(y-1, h-1),0)};
+            
+            for (int j=0;j<3;j++) {
+                piv = tex2D(tex, sx2[j], sy2[0]);
+                gy += (float)piv.x * 0.299 + (float)piv.y * 0.587 + (float)piv.z * 0.114;
+                piv = tex2D(tex, sx2[j], sy2[1]);
+                gy -= (float)piv.x * 0.299 + (float)piv.y * 0.587 + (float)piv.z * 0.114;
+            } 
+            
+            float g = sqrt(gx*gx + gy*gy);      
+            unsigned char mean = (unsigned char) min(255,(int)g);
+            out[y * w + x] = make_uchar4(mean, mean, mean, p.w);
+		}
     }
-    return f;
 }
 
 int main() {
     string filename1, filename2;
     cin >> filename1 >> filename2;
-    
-    Image pic;
-    pic.load(string(filename1));
-    pic.ink();
-    
-    Pixel *dev_pic, *dev_res;
-    cudaMalloc(&dev_pic, sizeof(Pixel) * pic.x * pic.y);
-    cudaMalloc(&dev_res, sizeof(Pixel) * pic.x * pic.y);
+	int w, h;
+	FILE *fp = fopen(filename1.c_str(), "rb");
+	fread(&w, sizeof(int), 1, fp);
+	fread(&h, sizeof(int), 1, fp);
+	uchar4 *data = (uchar4 *)malloc(sizeof(uchar4) * w * h);
+	fread(data, sizeof(uchar4), w * h, fp);
+	fclose(fp);
 
-    cudaMemcpy(dev_pic, pic.pixels, sizeof(Pixel) * pic.x * pic.y, cudaMemcpyHostToDevice);
+	// Подготовка данных для текстуры
+	cudaArray *arr;
+	cudaChannelFormatDesc ch = cudaCreateChannelDesc<uchar4>();
+	CSC(cudaMallocArray(&arr, &ch, w, h));
 
-    prewitt <<<2,2>>>(pic.x, pic.y, dev_pic, dev_res);
-    
-    cudaDeviceSynchronize();
-    
-    cudaMemcpy(pic.pixels, dev_res, sizeof(Pixel) * pic.x * pic.y, cudaMemcpyDeviceToHost);
-    
-    // Image pic2;
-    // pic2.load(string(filename1));
-    // pic2.ink();
-    // 
-    // Pixel * resp2 = (Pixel *)malloc(sizeof(Pixel) * pic2.x * pic2.y);
-    // prewitt(pic2.pixels, resp2, pic2.x, pic2.y);
-    // if (check(pic.pixels, resp2, pic2.x, pic2.y) == 1) {
-    //     fprintf(stderr, "%s", "ans dont match\n");
-    // }
-    // free(resp2);
+	CSC(cudaMemcpyToArray(arr, 0, 0, data, sizeof(uchar4) * w * h, cudaMemcpyHostToDevice));
 
-    cudaFree(dev_pic);
-    cudaFree(dev_res);
-    
-    pic.save(string(filename2));
-    return 0;
+	// Подготовка текстурной ссылки, настройка интерфейса работы с данными
+	tex.addressMode[0] = cudaAddressModeClamp;	// Политика обработки выхода за границы по каждому измерению
+	tex.addressMode[1] = cudaAddressModeClamp;
+	tex.channelDesc = ch;
+	tex.filterMode = cudaFilterModePoint;		// Без интерполяции при обращении по дробным координатам
+	tex.normalized = false;						// Режим нормализации координат: без нормализации
+
+	// Связываем интерфейс с данными
+	CSC(cudaBindTextureToArray(tex, arr, ch));
+
+	uchar4 *dev_out;
+	CSC(cudaMalloc(&dev_out, sizeof(uchar4) * w * h));
+
+	kernel<<<dim3(16, 16), dim3(16, 32)>>>(dev_out, w, h);
+	CSC(cudaGetLastError());
+
+	CSC(cudaMemcpy(data, dev_out, sizeof(uchar4) * w * h, cudaMemcpyDeviceToHost));
+
+	// Отвязываем данные от текстурной ссылки
+	CSC(cudaUnbindTexture(tex));
+
+	CSC(cudaFreeArray(arr));
+	CSC(cudaFree(dev_out));
+
+	fp = fopen(filename2.c_str(), "wb");
+	fwrite(&w, sizeof(int), 1, fp);
+	fwrite(&h, sizeof(int), 1, fp);
+	fwrite(data, sizeof(uchar4), w * h, fp);
+	fclose(fp);
+
+	free(data);
+	return 0;
 }
