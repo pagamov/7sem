@@ -5,6 +5,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 using namespace std;
 
@@ -218,7 +219,7 @@ vector <Pixel> prewitt(T& im) {
             float gx = im.Gx(i, j);
             float gy = im.Gy(i, j);
             float g = sqrt(gx*gx + gy*gy);
-            newc = min(255.0, g);
+            newc = min((float)255, g);
             res = (unsigned char) newc;
             pixels.push_back(Pixel(res, res, res, im.pixels[i + im.x * j].a));
         }
@@ -227,13 +228,16 @@ vector <Pixel> prewitt(T& im) {
 }
 
 int main(int argc, char ** argv) {
-    Image pic;
-    // BMP32 pic;
+    // Image pic;
+    BMP32 pic;
     string filename1, filename2;
     // cin >> filename1 >> filename2;
-    pic.load(string("data"));
+    pic.load(string("dog.bmp"));
+    // clock_t start = clock(), end;
     pic.ink();
     pic.pixels = prewitt(pic);
-    pic.save(string("res"));
+    // end = clock();
+    // cout << (end - start)/CLOCKS_PER_SEC << endl;
+    pic.save(string("dogres.bmp"));
     return 0;
 }
