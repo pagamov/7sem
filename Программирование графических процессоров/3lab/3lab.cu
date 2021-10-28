@@ -17,13 +17,15 @@ do {																\
 	}																\
 } while(0)
 
-typedef struct { unsigned x, y, z; } Uint4; 									// +4 294 967 295 ~ 255 * 4100 * 4100
+typedef struct { unsigned x, y, z; } Uint3; 									// +4 294 967 295 ~ 255 * 4100 * 4100
 typedef struct { int w, h, n; } info;											// pic 4100 by 4100 of one claster max pixel
 																				// mb need to be changed to higher
-__constant__ uchar4 cl[32];														// contant classes no more than 32 by default
+__constant__ uchar3 cl[32];														// contant classes no more than 32 by default
 __constant__ info inf[1];														// some else param that never changes
-// #define SIZE_OF_PIC sizeof(uchar4) * w * h
-// #define SIZE_OF_CLU sizeof(uchar4) * n
+#define SIZE_OF_PIC sizeof(uchar4) * w * h
+#define SIZE_OF_CL sizeof(uchar3) * n
+#define SIZE_OF_CLUINT sizeof(Uint3) * n
+#define SIZE_OF_INFO sizeof(info)
 
 __global__ void Kmean(uchar4 * pic) {
     for (int y = blockDim.y * blockIdx.y + threadIdx.y; y < inf[0].h; y += blockDim.y * gridDim.y) {
@@ -47,7 +49,7 @@ __global__ void Kmean(uchar4 * pic) {
     }
 }
 
-__global__ void reBuild(uchar4 * pic, Uint4 * newcl) {
+__global__ void reBuild(uchar4 * pic, Uint3 * newcl) {
 	int idx = threadIdx.x;
 	if (idx < inf[0].n) {
 		unsigned char uidx = (unsigned char)idx;
@@ -56,9 +58,9 @@ __global__ void reBuild(uchar4 * pic, Uint4 * newcl) {
 	    for (int y = 0; y < inf[0].h; y++) {
 	        for (int x = 0; x < inf[0].w; x++) {
 				if (pic[x + inf[0].w * y].w == uidx) {
-					newcl[uidx].x += pic[x + inf[0].w * y].x;
-					newcl[uidx].y += pic[x + inf[0].w * y].y;
-					newcl[uidx].z += pic[x + inf[0].w * y].z;
+					newcl[uidx].x += (int)pic[x + inf[0].w * y].x;
+					newcl[uidx].y += (int)pic[x + inf[0].w * y].y;
+					newcl[uidx].z += (int)pic[x + inf[0].w * y].z;
 					num += 1;
 				}
 	        }
@@ -82,49 +84,63 @@ int main() {
 	FILE * f = fopen(filename1.c_str(), "rb");									// read data section
 	fread(&w, sizeof(int), 1, f);
 	fread(&h, sizeof(int), 1, f);
-	uchar4 * data = (uchar4 *)malloc(sizeof(uchar4) * w * h); 					// malloc data
+	uchar4 * data = (uchar4 *)malloc(SIZE_OF_PIC); 								// malloc data
 	fread(data, sizeof(uchar4), w * h, f);
 	fclose(f);
 	
 	uchar4 * dev_pic;															// make dev struct for kernel
-	CSC(cudaMalloc(&dev_pic, sizeof(uchar4) * w * h));							// cuda malloc dev_pic
-	CSC(cudaMemcpy(dev_pic, data, sizeof(uchar4) * w * h, cudaMemcpyHostToDevice));
+	CSC(cudaMalloc(&dev_pic, SIZE_OF_PIC));										// cuda malloc dev_pic
+	CSC(cudaMemcpy(dev_pic, data, SIZE_OF_PIC, cudaMemcpyHostToDevice));
 	
 	info infHost[1];															// infHost
 	infHost[0].w = w; infHost[0].h = h; infHost[0].n = n;						// copy info data and never touch again
-	CSC(cudaMemcpyToSymbol(inf, infHost, sizeof(info), 0, cudaMemcpyHostToDevice));
+	CSC(cudaMemcpyToSymbol(inf, infHost, SIZE_OF_INFO, 0, cudaMemcpyHostToDevice));
 	
-	uchar4 clHost[32];															// read data for classes
+	uchar3 clHost[32];															// read data for classes
     for (int i = 0; i < n; i++) {
 		cin >> x >> y;
-		clHost[i] = data[x + w * y];
+		clHost[i].x = data[x + w * y].x;
+		clHost[i].y = data[x + w * y].y;
+		clHost[i].z = data[x + w * y].z;
 	} 																			// we ll touch it every cicle
-	CSC(cudaMemcpyToSymbol(cl, clHost, sizeof(uchar4) * 32, 0, cudaMemcpyHostToDevice));
+	CSC(cudaMemcpyToSymbol(cl, clHost, SIZE_OF_CL, 0, cudaMemcpyHostToDevice));
 	
-	Uint4 * dev_clnew;
-	CSC(cudaMalloc(&dev_clnew, sizeof(Uint4) * 32));							// cuda malloc dev_clnew
+	Uint3 * dev_clnew;
+	CSC(cudaMalloc(&dev_clnew, SIZE_OF_CLUINT));								// cuda malloc dev_clnew
 	
-	Uint4 * clnew; 																// but why this way?
-	clnew = (Uint4 *)malloc(sizeof(Uint4) * 32);								// malloc clnew
+	Uint3 * clnew; 																// but why this way?
+	clnew = (Uint3 *)malloc(SIZE_OF_CLUINT);									// malloc clnew
 	
+	int count = 0;
+	cudaEvent_t start, stop;													// create event for timing
+	float elapsedTime;
+	cudaEventCreate(&start);													// time event to start
+	cudaEventCreate(&stop);
 	while (flag) {
+		cudaEventRecord(start, 0);												// Start record
 		Kmean <<<dim3(16, 16), dim3(32, 32)>>> (dev_pic);						// find new clasters
-		// cudaDeviceSynchronize();
+		cudaEventRecord(stop, 0);												// Stop event
+		cudaEventSynchronize(stop);
+		
+		cudaEventElapsedTime(&elapsedTime, start, stop); 						// thats our time
+		
+		fprintf(stderr, "%d,%f,", count, elapsedTime);
+		
+		cudaEventRecord(start, 0);												// Start record	
+		reBuild <<<1, 32>>> (dev_pic, dev_clnew);								// save in clnew new centers by rgb // SLOW??!!!
+		cudaEventRecord(stop, 0);												// Stop event
+		cudaEventSynchronize(stop);
+		
+		cudaEventElapsedTime(&elapsedTime, start, stop); 						// thats our time
+		fprintf(stderr, "%f\n", elapsedTime);
+
+
+		CSC(cudaMemcpy(clnew, dev_clnew, SIZE_OF_CLUINT, cudaMemcpyDeviceToHost));
 	
-		reBuild <<<1, 32>>> (dev_pic, dev_clnew);								// save in clnew new centers by rgb
-		// cudaDeviceSynchronize();
-	
-		CSC(cudaMemcpy(clnew, dev_clnew, sizeof(Uint4) * 32, cudaMemcpyDeviceToHost));
-	
-		// cout << "\ncount: " << count << endl;
-		// cout << "clHost:" << endl;
-		// for (int i = 0; i < n; i++) {
-		// 	cout << (int)clHost[i].x << " " << (int)clHost[i].y << " " << (int)clHost[i].z << endl;
-		// }
+		// cout << "\ncount: " << count << endl; cout << "clHost:" << endl;
+		// for (int i = 0; i < n; i++) cout << (int)clHost[i].x << " " << (int)clHost[i].y << " " << (int)clHost[i].z << endl;
 		// cout << "clnew:" << endl;
-		// for (int i = 0; i < n; i++) {
-		// 	cout << clnew[i].x << " " << clnew[i].y << " " << clnew[i].z << endl;
-		// }
+		// for (int i = 0; i < n; i++) cout << clnew[i].x << " " << clnew[i].y << " " << clnew[i].z << endl;
 	
 		flag = 0;
 		for (int i = 0; i < n; i++) {
@@ -134,22 +150,22 @@ int main() {
 					  flag = 1;
 			}
 		}
-	
+		// if (memcmp(clnew, clHost, sizeof(uchar3) * n) == 0)
+		// 	flag = 0;
 		for (int i = 0; i < n; i++) {
 			clHost[i].x = (unsigned char)clnew[i].x;
 			clHost[i].y = (unsigned char)clnew[i].y;
 			clHost[i].z = (unsigned char)clnew[i].z;
 		}
-		// cout << 'here' << endl;
 	
-		CSC(cudaMemcpyToSymbol(cl, clHost, sizeof(clHost), 0, cudaMemcpyHostToDevice));
+		CSC(cudaMemcpyToSymbol(cl, clHost, SIZE_OF_CL, 0, cudaMemcpyHostToDevice));
+		count++;
 	}
 	
-	// Kmean <<<dim3(16, 16), dim3(32, 32)>>> (dev_pic);
-    
-	CSC(cudaGetLastError());
+	cudaEventDestroy(start);													// time event is destroyed
+	cudaEventDestroy(stop);														// clean up
 	
-	CSC(cudaMemcpy(data, dev_pic, sizeof(uchar4) * w * h, cudaMemcpyDeviceToHost));
+	CSC(cudaMemcpy(data, dev_pic, SIZE_OF_PIC, cudaMemcpyDeviceToHost));
 	
 	CSC(cudaFree(dev_pic));														// cuda free dev_pic
 	CSC(cudaFree(dev_clnew));													// cuda free dev_clnew
@@ -162,8 +178,6 @@ int main() {
 	fclose(f);
 
 	free(clnew);																// free clnew
-	
-	
 	free(data);																	// free data
 	return 0;
 }
