@@ -17,13 +17,12 @@ do {																\
 	}																\
 } while(0)
 
-// texture<uchar4, 2, cudaReadModeElementType> tex;
-
 __global__ void Kmean(uchar4 * pic, uchar4 * cl, int w, int h, int n) {
+	// rebuild to cl as const mem :!
     for (int y = blockDim.y * blockIdx.y + threadIdx.y; y < h; y += blockDim.y * gridDim.y) {
         for (int x = blockDim.x * blockIdx.x + threadIdx.x; x < w; x += blockDim.x * gridDim.x) {
             int resClas = -1;
-            float maxDist = 10000;
+            float maxDist = sqrt((float)3*(255*255))+1.0F;
 			uchar4 piv = pic[x + w * y];
             for (int i = 0; i < n; i++) {
                 float pivDist = sqrt( 					   \
@@ -32,18 +31,26 @@ __global__ void Kmean(uchar4 * pic, uchar4 * cl, int w, int h, int n) {
 					pow((float)piv.z - (float)cl[i].z,2)   \
 				);
                 if (pivDist < maxDist) {
-                    resClas = clas;
+                    resClas = i;
                     maxDist = pivDist;
                 }
             }
-            pic[x + y * im.x].w = (unsigned char)resClas;
+            pic[x + y * w].w = (unsigned char)resClas;
         }
     }
 }
 
-#define SIZE_OF_PIC sizeof(uchar4) * w * h);
-#define SIZE_OF_CL sizeof(int) * n * 2);
-#define SIZE_OF_CLU sizeof(uchar4) * n);
+__global__ void reBuild(uchar4 * pic, uchar4 * cl, uchar4 * newcl, int w, int h, int n) {
+	// rebuild to cl as const mem :!
+    for (int y = blockDim.y * blockIdx.y + threadIdx.y; y < h; y += blockDim.y * gridDim.y) {
+        for (int x = blockDim.x * blockIdx.x + threadIdx.x; x < w; x += blockDim.x * gridDim.x) {
+			// will write to newcl new rgb of classes
+        }
+    }
+}
+
+#define SIZE_OF_PIC sizeof(uchar4) * w * h
+#define SIZE_OF_CLU sizeof(uchar4) * n
 
 int main() {
     string filename1, filename2;
@@ -63,20 +70,15 @@ int main() {
     // int * cl = (int *)malloc(SIZE_OF_CL); //#
     for (int i = 0; i < n; i++) {
 		cin >> x >> y;
-		memcpy(clu[i], data[x + w * y], sizeof(uchar4)); // check if works
+		clu[i] = data[x + w * y];
 	}
-	
-	// delete after check if works
-	for (int i = 0; i < n; i++) {
-		cout << clu[i].x << " " << clu[i].y << " " << clu[i].z << " " << clu[i].w << endl;
-	}
-		
 	// make dev struct for kernel
-	cudaMalloc(&dev_pic, SIZE_OF_PIC);
-    cudaMalloc(&dev_cl, SIZE_OF_CLU);
+	uchar4 * dev_pic, * dev_cl;
+	CSC(cudaMalloc(&dev_pic, SIZE_OF_PIC));
+    CSC(cudaMalloc(&dev_cl, SIZE_OF_CLU));
 	// copy data to dev struct
-	cudaMemcpy(dev_pic, data, SIZE_OF_PIC), cudaMemcpyHostToDevice);
-    cudaMemcpy(dev_cl, clu, SIZE_OF_CLU, cudaMemcpyHostToDevice);
+	CSC(cudaMemcpy(dev_pic, data, SIZE_OF_PIC, cudaMemcpyHostToDevice));
+    CSC(cudaMemcpy(dev_cl, clu, SIZE_OF_CLU, cudaMemcpyHostToDevice));
     
 	Kmean <<<dim3(16, 16), dim3(32, 32)>>> (dev_pic, dev_cl, w, h, n);
 
@@ -94,6 +96,5 @@ int main() {
 
 	free(data);
 	free(clu);
-	// free(cl);
 	return 0;
 }
