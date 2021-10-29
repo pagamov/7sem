@@ -29,13 +29,16 @@ __constant__ info inf[1];														// some else param that never changes
 #define SIZE_OF_CLUINT sizeof(LL3) * n
 #define SIZE_OF_INFO sizeof(info)
 
+// texture<uchar4, 2, cudaReadModeElementType> tex;
+
 __global__ void Kmean(uchar4 * pic) {
     for (int y = blockDim.y * blockIdx.y + threadIdx.y; y < inf[0].h; y += blockDim.y * gridDim.y) {
         for (int x = blockDim.x * blockIdx.x + threadIdx.x; x < inf[0].w; x += blockDim.x * gridDim.x) {
             double maxDist = sqrt((double)3*(255*255))+(double)1;
+			// uchar4 piv = tex2D(tex, x, y);
 			uchar4 piv = pic[x + inf[0].w * y];
             for (int i = 0; i < inf[0].n; i++) {
-                float pivDist = sqrt( 					   						      \
+                double pivDist = sqrt( 					   						      \
 					(((double)piv.x-CLASSES[i].x) * ((double)piv.x-CLASSES[i].x)) + \
 					(((double)piv.y-CLASSES[i].y) * ((double)piv.y-CLASSES[i].y)) + \
 					(((double)piv.z-CLASSES[i].z) * ((double)piv.z-CLASSES[i].z))   \
@@ -50,7 +53,7 @@ __global__ void Kmean(uchar4 * pic) {
 }
 
 int main() {
-	double eps = 0.01;
+	double eps = 0.1;
     string filename1, filename2;
     int w, h, n, x, y, flag = 1;
     cin >> filename1 >> filename2 >> n;
@@ -81,6 +84,21 @@ int main() {
 	LL3 * CLASSES_NEW = 	(LL3 *)malloc(SIZE_OF_CLUINT);						// malloc CLASSES_NEW
 	int * CLASSES_NEW_NUM = (int *)malloc(sizeof(int) * n);						// test
 	
+	// // Подготовка данных для текстуры
+	// cudaArray *arr;
+	// cudaChannelFormatDesc ch = cudaCreateChannelDesc<uchar4>();
+	// CSC(cudaMallocArray(&arr, &ch, w, h));
+	// CSC(cudaMemcpyToArray(arr, 0, 0, data, sizeof(uchar4) * w * h, cudaMemcpyHostToDevice));
+	// // Подготовка текстурной ссылки, настройка интерфейса работы с данными
+	// tex.addressMode[0] = cudaAddressModeClamp;	// Политика обработки выхода за границы по каждому измерению
+	// tex.addressMode[1] = cudaAddressModeClamp;
+	// tex.channelDesc = ch;
+	// tex.filterMode = cudaFilterModePoint;		// Без интерполяции при обращении по дробным координатам
+	// tex.normalized = false;						// Режим нормализации координат: без нормализации
+	// 
+	// // Связываем интерфейс с данными
+	// CSC(cudaBindTextureToArray(tex, arr, ch));
+	// 
 	while (flag) {
 		CSC(cudaMemcpyToSymbol(CLASSES, clHost, SIZE_OF_CL, 0, cudaMemcpyHostToDevice));
 		Kmean <<<dim3(16, 16), dim3(32, 32)>>> (DEV_DATA);						// find new clasters
@@ -128,6 +146,11 @@ int main() {
 			clHost[i].z = CLASSES_NEW[i].z;
 		}
 	}
+	// 
+	// // Отвязываем данные от текстурной ссылки
+	// CSC(cudaUnbindTexture(tex));
+	// CSC(cudaFreeArray(arr));
+	// 
 	CSC(cudaFree(DEV_DATA));														// cuda free dev_pic
 
 	f = fopen(filename2.c_str(), "wb");
