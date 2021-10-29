@@ -23,6 +23,7 @@ typedef struct { int w, h, n; } info;											// pic 4100 by 4100 of one clast
 typedef struct { double x, y, z; } D3;
 __constant__ D3 CLASSES[32];													// contant classes no more than 32 by default
 __constant__ info inf[1];														// some else param that never changes
+
 #define SIZE_OF_PIC sizeof(uchar4) * w * h
 #define SIZE_OF_CL sizeof(D3) * n
 #define SIZE_OF_CLUINT sizeof(LL3) * n
@@ -77,7 +78,7 @@ int main() {
 		clHost[i].z = (double)data[x + w * y].z;
 	} 																			// we ll touch it every cicle
 	
-	LL3 * CLASSES_NEW = 	(LL3 *)malloc(SIZE_OF_CLUINT);					// malloc CLASSES_NEW
+	LL3 * CLASSES_NEW = 	(LL3 *)malloc(SIZE_OF_CLUINT);						// malloc CLASSES_NEW
 	int * CLASSES_NEW_NUM = (int *)malloc(sizeof(int) * n);						// test
 	
 	while (flag) {
@@ -114,8 +115,8 @@ int main() {
 		for (int i = 0; i < n; i++) {
 			if (!(											\
 				(abs(clHost[i].x - CLASSES_NEW[i].x) < eps) && \
-				(abs(clHost[i].x - CLASSES_NEW[i].x) < eps) && \
-				(abs(clHost[i].x - CLASSES_NEW[i].x) < eps)	\
+				(abs(clHost[i].y - CLASSES_NEW[i].y) < eps) && \
+				(abs(clHost[i].z - CLASSES_NEW[i].z) < eps)	\
 				)) {
 					flag = 1;
 			}
