@@ -78,6 +78,21 @@ void displayDouble(double * M, int n) {
     }
 }
 
+// __global__ void LUP(double * A, int * SWP, int i, int n, int newidx) {
+// 	int pivot = newidx;
+//     double piv;
+// 	for (int sw = 0; sw < n; sw++) {
+//        piv = A[pivot + n * sw];
+//        A[pivot + n * sw] = A[i + n * sw];
+//        A[i + n * sw] = piv;
+//     }
+//     for(int j = i+1; j < n; j++) {
+//        A[j + n * i] /= A[i + n * i];
+//        for(int k = i+1; k < n; k++) 
+//            A[j + n * k] -= A[j + n * i] * A[i + n * k];
+//     }
+// }
+
 void LUP(double * A, double * C, double * P, int n, int * switching) {
     // C = A;
     // double * C = (double *)malloc(sizeof(double) * n * n);
