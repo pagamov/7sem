@@ -96,7 +96,7 @@ int main() {
     
     for (int y = 0; y < n; y++) {
         for (int x = 0; x < n; x++)
-            printf("%lf ", A[x * n + y]);
+            printf("%.10lf ", A[x * n + y]);
         printf("\n");
     }
     for (int i = 0; i < n; i++) {
