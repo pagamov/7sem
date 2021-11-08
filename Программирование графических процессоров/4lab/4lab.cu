@@ -19,25 +19,10 @@ do {																\
 } while(0)
 
 struct comparator {												
-	__host__ __device__ bool operator()(double a, double b) {		// Функция которая сравнивает объекты на "<"
-		return abs(a) < abs(b);										// operator() - переопределение оператора "()" для экземпляра этой структуры
+	__host__ __device__ bool operator()(double a, double b) {
+		return abs(a) < abs(b);
 	}
 };
-
-// __global__ void LUP(double * A, int * SWP, int i, int n, int newidx) {
-// 	int pivot = newidx;
-//     double piv;
-// 	for (int sw = 0; sw < n; sw++) {
-//        piv = A[pivot + n * sw];
-//        A[pivot + n * sw] = A[i + n * sw];
-//        A[i + n * sw] = piv;
-//     }
-//     for(int j = i+1; j < n; j++) {
-//        A[j + n * i] /= A[i + n * i];
-//        for(int k = i+1; k < n; k++) 
-//            A[j + n * k] -= A[j + n * i] * A[i + n * k];
-//     }
-// }
 
 __global__ void LUP_swap(double * A, int i, int n, int newidx) {
 	int idx = blockDim.x * blockIdx.x + threadIdx.x;
@@ -50,13 +35,25 @@ __global__ void LUP_swap(double * A, int i, int n, int newidx) {
 	}
 }
 
-__global__ void LUP(double * A, int i, int n) {
+__global__ void LUP_N(double * A, int i, int n) {
 	int idx = blockDim.x * blockIdx.x + threadIdx.x;
 	int shift = blockDim.x * gridDim.x;
 	for (int var = idx + i + 1; var < n; var += shift) {
 		A[var + n * i] /= A[i + n * i];
-		for (int k = i + 1; k < n; k++)
+	}
+}
+
+__global__ void LUP(double * A, int i, int n) {
+	int idx = blockDim.x * blockIdx.x + threadIdx.x;
+	int idy = blockDim.y * blockIdx.y + threadIdx.y;
+	
+	int shiftx = blockDim.x * gridDim.x;
+	int shifty = blockDim.y * gridDim.y;
+	
+	for (int var = idx + i + 1; var < n; var += shiftx) {
+		for (int k = idy + i + 1; k < n; k += shifty) {
 			A[var + n * k] -= A[var + n * i] * A[i + n * k];
+		}
 	}
 }
 
@@ -88,7 +85,8 @@ int main() {
 		newidx = max - d_ptr + i;
 		newidxarr[i] = newidx;
 		LUP_swap <<<32,32>>> (A_DEV, i, n, newidx);
-		LUP      <<<32,32>>> (A_DEV, i, n);
+		LUP_N <<<32,32>>> (A_DEV, i, n);
+		LUP <<<dim3(32,32),dim3(32,32)>>> (A_DEV, i, n);
     }
 	                      
     CSC(cudaMemcpy(A, A_DEV, sizeof(double) * n * n, cudaMemcpyDeviceToHost));
