@@ -26,8 +26,8 @@ def image_to_bin(src, dest):
 
 
 if __name__ == '__main__':
-    bin_to_image('res','photo2.jpg')
-    # image_to_bin('photo1.jpg','data1')
+    bin_to_image('res2','res2.jpg')
+    # image_to_bin('photo2.jpg','data2')
     exit()
     parser = argparse.ArgumentParser()
     parser.add_argument('--encode', action='store_true', help='Convert image to bin')

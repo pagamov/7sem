@@ -130,7 +130,7 @@ int main(int argc, char ** argv) {
             if (num[i] != 0) {
                 newx[i] /= num[i]; newy[i] /= num[i]; newz[i] /= num[i];
             } else {
-                printf("error in del num\n");
+                // printf("error in del num\n");
             }
         }
         
@@ -143,27 +143,7 @@ int main(int argc, char ** argv) {
     for (int y = 0; y < pic.y; y++) {
         for (int x = 0; x < pic.x; x++) {
             int idx = pic.pixels[y * pic.x + x].a;
-            int lim = 150;
-            int some = 0;
-            
-            // if (curx[idx] > lim) {
-            //     pic.pixels[y * pic.x + x].r = some;
-            // } else {
-            //     pic.pixels[y * pic.x + x].r = curx[idx];
-            // }
-            // 
-            // if (cury[idx] > lim) {
-            //     pic.pixels[y * pic.x + x].g = some;
-            // } else {
-            //     pic.pixels[y * pic.x + x].g = cury[idx];
-            // }
-            // 
-            // if (curz[idx] > lim) {
-            //     pic.pixels[y * pic.x + x].b = some;
-            // } else {
-            //     pic.pixels[y * pic.x + x].b = curz[idx];
-            // }
-            pic.pixels[y * pic.x + x].a = 0;
+            pic.pixels[y * pic.x + x].a = 255;
             pic.pixels[y * pic.x + x].r = curx[idx];
             pic.pixels[y * pic.x + x].g = cury[idx];
             pic.pixels[y * pic.x + x].b = curz[idx];
