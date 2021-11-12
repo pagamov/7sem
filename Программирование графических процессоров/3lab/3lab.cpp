@@ -66,7 +66,7 @@ float dist(Pixel p, Pixel d) {
     return res;
 }
 
-vector <Pixel> Kmean(Image im, int n, int * cl) {
+vector <Pixel> Kmean(Image im, int n, int *newx, int *newy, int *newz) {
     for (int y = 0; y < im.y; y++) {
         for (int x = 0; x < im.x; x++) {
             unsigned char piv = 0;
@@ -75,7 +75,7 @@ vector <Pixel> Kmean(Image im, int n, int * cl) {
             for (int i = 0, clas = 0; clas < n; clas++, i+=2) {
                 float pivDist = dist(                   \
                     im.pixels[x + y * im.x],            \
-                    im.pixels[cl[i] + cl[i+1] * im.x]   \
+                    Pixel(newx[i],newy[i],newz[i],0)   \
                 );
                 if (pivDist < maxDist) {
                     resClas = clas;
@@ -89,21 +89,92 @@ vector <Pixel> Kmean(Image im, int n, int * cl) {
 }
 
 int main(int argc, char ** argv) {
+    srand(time(NULL));
     Image pic;
     string filename1, filename2;
-    int n;
+    int n = 32;
     
-    cin >> filename1 >> filename2 >> n;
-    int * cl = (int *)malloc(sizeof(int) * n * 2);
-    for (int i = 0; i < n * 2; i += 2) {
-        cin >> cl[i] >> cl[i + 1];
-    }
+    cin >> filename1 >> filename2;
+    
+    int curx[32],cury[32],curz[32];
     
     pic.load(filename1);
     pic.clean();
-    pic.pixels = Kmean(pic, n, cl);
+    
+    for (int j = 0; j < n; j++) {
+        curx[j] = (int)(rand() % 255);
+        cury[j] = (int)(rand() % 255);
+        curz[j] = (int)(rand() % 255);
+    }
+    
+    int newx[32],newy[32],newz[32],num[32];
+    
+    for (int iter = 0; iter < 10; iter++) {
+        pic.pixels = Kmean(pic, n, curx,cury,curz);
+        
+        for (int i = 0; i < n; i++) {
+            num[i] = 0; newx[i] = 0; newy[i] = 0; newz[i] = 0;
+        }
+        
+        for (int y = 0; y < pic.y; y++) {
+            for (int x = 0; x < pic.x; x++) {
+                int idx = pic.pixels[y * pic.x + x].a;
+                newx[idx] += pic.pixels[y * pic.x + x].r;
+                newy[idx] += pic.pixels[y * pic.x + x].g;
+                newz[idx] += pic.pixels[y * pic.x + x].b;
+                num[idx] += 1;
+            }
+        }
+        
+        for (int i = 0; i < n; i++) {
+            if (num[i] != 0) {
+                newx[i] /= num[i]; newy[i] /= num[i]; newz[i] /= num[i];
+            } else {
+                printf("error in del num\n");
+            }
+        }
+        
+        for (int i = 0; i < n; i++) {
+            curx[i] = newx[i]; cury[i] = newy[i]; curz[i] = newz[i];
+        }
+        printf("%d\n",iter);
+    }
+    
+    for (int y = 0; y < pic.y; y++) {
+        for (int x = 0; x < pic.x; x++) {
+            int idx = pic.pixels[y * pic.x + x].a;
+            int lim = 150;
+            int some = 0;
+            
+            // if (curx[idx] > lim) {
+            //     pic.pixels[y * pic.x + x].r = some;
+            // } else {
+            //     pic.pixels[y * pic.x + x].r = curx[idx];
+            // }
+            // 
+            // if (cury[idx] > lim) {
+            //     pic.pixels[y * pic.x + x].g = some;
+            // } else {
+            //     pic.pixels[y * pic.x + x].g = cury[idx];
+            // }
+            // 
+            // if (curz[idx] > lim) {
+            //     pic.pixels[y * pic.x + x].b = some;
+            // } else {
+            //     pic.pixels[y * pic.x + x].b = curz[idx];
+            // }
+            pic.pixels[y * pic.x + x].a = 0;
+            pic.pixels[y * pic.x + x].r = curx[idx];
+            pic.pixels[y * pic.x + x].g = cury[idx];
+            pic.pixels[y * pic.x + x].b = curz[idx];
+        }
+    }
+    
+    
+    
     pic.save(filename2);
     
-    free(cl);
+    // free(cl);
+    // free(newcl);
     return 0;
 }
