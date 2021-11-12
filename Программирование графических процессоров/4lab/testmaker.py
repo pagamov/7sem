@@ -1,7 +1,7 @@
 from random import randint
 
 f = open('data', 'w')
-n = 10
+n = int(input())
 f.write(str(n) + '\n')
 
 for i in range(n):
