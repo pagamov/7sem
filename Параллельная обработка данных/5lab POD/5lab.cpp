@@ -1,10 +1,10 @@
 #include <iostream>
 #include <fstream>
 
-template < typename T, size_t N >
-void oddEvenSorting(T (&array)[N]) {
+using namespace std;
+
+void oddEvenSorting(int * array, int N) {
 	for (size_t i = 0; i < N; i++) {
-	    // (i % 2) ? 0 : 1 возвращает 1, если i четное, 0, если i не четное
 		for (size_t j = (i % 2) ? 0 : 1; j + 1 < N; j += 2) {
 			if (array[j] > array[j + 1]) {
 				std::swap(array[j], array[j + 1]);
@@ -13,13 +13,36 @@ void oddEvenSorting(T (&array)[N]) {
 	}
 }
 
-int main(int argc, char ** argv) {
-    int n;
-	fread(&n, 4, 1, stdin);
-	int * arr = (int *)malloc(n * sizeof(int));
-	fread(arr, 4, n, stdin);
+int main() {
+	bool binary = true;
+	int n;
 	
-	fwrite(arr, 4, n, stdout);	
+	if (binary) {
+		fread(&n, 4, 1, stdin);
+	} else {
+		cin >> n;
+	}
+	
+	int * arr = (int *)malloc(n * sizeof(int));
+	
+	if (binary) {
+		fread(arr, 4, n, stdin);
+	} else {
+		for (int i = 0; i < n; i++) {
+			cin >> arr[i];
+		}
+	}
+	
+	oddEvenSorting(arr, n);
+	
+	if (binary) {
+		fwrite(arr, 4, n, stdout);
+	} else {
+		for (int i = 0; i < n; i++) {
+			cout << arr[i] << " ";
+		}
+		cout << endl;
+	}
 	free(arr);
     return 0;
 }
