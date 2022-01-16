@@ -10,13 +10,8 @@
 
 using namespace std;
 
-<<<<<<< HEAD
-#define BLOCK_SIZE 64
-#define NUM_BLOCKS 2048
-=======
 #define BLOCK_SIZE 512
 #define NUM_BLOCKS (2048+2048)
->>>>>>> b96cdb6f914ca18c52cbf5ee9ca2db3168e1ed47
 
 #define CSC(call)                                                   \
 do {                                                                \
@@ -94,6 +89,8 @@ int main() {
     else
         fread(&n, 4, 1, stdin);
 
+    fwrite(n, 4, 1, stderr);
+
     if (n % BLOCK_SIZE != 0)
         upd_n = (n / BLOCK_SIZE + 1) * BLOCK_SIZE;
     else
@@ -128,7 +125,7 @@ int main() {
         }
     }
 
-    // CSC(cudaGetLastError());
+    CSC(cudaGetLastError());
     CSC(cudaMemcpy(arr, ARR_DEV, sizeof(int) * upd_n, cudaMemcpyDeviceToHost));
 
     if (verbose) {
