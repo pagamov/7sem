@@ -10,6 +10,9 @@
 
 using namespace std;
 
+#define BLOCK_SIZE 8
+#define NUM_BLOCKS 1
+
 #define CSC(call)                                                   \
 do {                                                                \
     cudaError_t res = call;                                         \
@@ -35,117 +38,11 @@ __global__ void oddEvenSortingStep(int * A, int i, int n, int batch) {
     }
 }
 
-#define BLOCK_SIZE 1024
-#define NUM_BLOCKS 1024
-
-__device__ void swap_step(int* nums, int* tmp, int size, int start, int stop, int step, int i) {
-	// Using shared memory to store blocks and sort them
-	__shared__ int sh_array[BLOCK_SIZE*2];
-
-	// Step for bitonic merge inside merging
-	for (int shift = start; shift < stop; shift += step) {
-		// New start pointer
-		tmp = nums + shift;
-
-		// Right side
-		if (i >= BLOCK_SIZE / 2)
-			sh_array[i] = tmp[BLOCK_SIZE * 3 / 2 - 1 - i];
-		else
-			sh_array[i] = tmp[i];
-
-		__syncthreads();
-
-		// From half
-		for (int j = BLOCK_SIZE / 2; j > 0; j /= 2) {
-			unsigned int XOR = i ^ j;
-			// The threads with the lowest ids sort the array
-			if (XOR > i) {
-				if ((i & BLOCK_SIZE) != 0) {
-					// Step descending, swap(i, XOR)
-					if (sh_array[i] < sh_array[XOR])
-						thrust::swap(sh_array[i], sh_array[XOR]);
-				} else {
-					// Step ascending, swap(i, XOR)
-					if (sh_array[i] > sh_array[XOR])
-						thrust::swap(sh_array[i], sh_array[XOR]);
-				}
-			}
-
-			__syncthreads();
-		}
-
-		// Back from shared to temporary
-		tmp[i] = sh_array[i];
-	}
-}
-
-__global__ void kernel_bitonic_merge_step(int* nums, int size, bool is_odd) {
-	// Temporary array for splitting into blocks
-	int* tmp = nums;
-
-	// Every thread gets exactly one value in the unsorted array
-	unsigned int i = threadIdx.x;
-	int id_block = blockIdx.x;
-	int offset = gridDim.x;
-
-	// For odd step
-	if(is_odd) {
-		swap_step(nums, tmp, size, (BLOCK_SIZE / 2) + id_block * BLOCK_SIZE, size - BLOCK_SIZE, offset * BLOCK_SIZE, i);
-	} else { // For even step
-		swap_step(nums, tmp, size, id_block * BLOCK_SIZE, size, offset * BLOCK_SIZE, i);
-	}
-}
-
-void merge(int * arr, int i, int batch, int start, int n) {
-    cout << "step: " << i << endl;
-    int * l = (int *)malloc(batch * sizeof(int));
-    int * r = (int *)malloc(batch * sizeof(int));
-    for (int j = 0; j < batch; j++) {
-        l[j] = arr[start + j];
-        r[j] = arr[start + batch + j];
-    }
-    int rc = 0;
-    int lc = 0;
-    int it = start;
-
-    while (true) {
-        if (rc == batch) {
-            cout << "rc == batch" << endl;
-            arr[it] = l[lc];
-            lc++;
-        } else if (lc == batch) {
-            cout << "lc == batch" << endl;
-            arr[it] = r[rc];
-            rc++;
-        } else {
-            if (l[lc] < r[rc]) {
-                cout << "l[lc] < r[rc]" << endl;
-                arr[it] = l[lc];
-                lc++;
-            } else if (l[lc] > r[rc]) {
-                cout << "l[lc] > r[rc]" << endl;
-                arr[it] = r[rc];
-                rc++;
-            } else {
-                cout << "else" << endl;
-                arr[it] = l[lc];
-                lc++;
-            }
-        }
-        it++;
-        if (lc == batch && rc == batch) {
-            break;
-        }
-    }
-    free(l);
-    free(r);
-}
-
 __global__ void mergeGPU(int * arr, int upd_n, int batch, int start) {
     __shared__ int l[BLOCK_SIZE];
     __shared__ int r[BLOCK_SIZE];
 
-    for (int st = start + blockDim.x * 2 * blockIdx.x; st + 2 * blockDim.x < upd_n; st += blockDim.x * 2 * gridDim.x) {
+    for (int st = start + blockDim.x * 2 * blockIdx.x; st + 2 * blockDim.x < upd_n+1; st += blockDim.x * 2 * gridDim.x) {
         l[threadIdx.x] = arr[st + threadIdx.x];
         __syncthreads();
         r[threadIdx.x] = arr[st + threadIdx.x + blockDim.x];
@@ -183,7 +80,6 @@ __global__ void mergeGPU(int * arr, int upd_n, int batch, int start) {
     __syncthreads();
 }
 
-
 int main() {
     int n, upd_n;
 
@@ -214,7 +110,6 @@ int main() {
 
     // bitonic merge sort
     for (int i = 0; i < 2 * (upd_n / BLOCK_SIZE); i++) {
-        // cout << "here" << endl;
         if (i % 2 == 0) {
             mergeGPU <<<NUM_BLOCKS,BLOCK_SIZE>>> (ARR_DEV, upd_n, BLOCK_SIZE, 0);
         } else {
@@ -226,12 +121,13 @@ int main() {
     CSC(cudaMemcpy(arr, ARR_DEV, sizeof(int) * upd_n, cudaMemcpyDeviceToHost));
 
     fwrite(arr, 4, n, stdout);
-    // cout << BLOCK_SIZE << endl;
+    // cout << upd_n << ' ' << n << endl;
     // for (int i = 0; i < n; i++) {
-    //     if (i % BLOCK_SIZE == 0)
-    //         cout << "| ";
+        // if (i % BLOCK_SIZE == 0)
+        //     cout << "| ";
     //     cout << arr[i] << " ";
     // }
+    // cout << endl;
     // cout << "|" << endl;
 
 
