@@ -10,8 +10,8 @@
 
 using namespace std;
 
-#define BLOCK_SIZE 8
-#define NUM_BLOCKS 1
+#define BLOCK_SIZE 64
+#define NUM_BLOCKS 2048
 
 #define CSC(call)                                                   \
 do {                                                                \
@@ -105,7 +105,7 @@ int main() {
 
     // odd even sort
     for (int i = 0; i < n; i++) {
-        oddEvenSortingStep <<<32,32>>> (ARR_DEV, i, n, BLOCK_SIZE);
+        oddEvenSortingStep <<<NUM_BLOCKS,BLOCK_SIZE>>> (ARR_DEV, i, n, BLOCK_SIZE);
     }
 
     // bitonic merge sort
@@ -117,7 +117,7 @@ int main() {
         }
     }
 
-    CSC(cudaGetLastError());
+    // CSC(cudaGetLastError());
     CSC(cudaMemcpy(arr, ARR_DEV, sizeof(int) * upd_n, cudaMemcpyDeviceToHost));
 
     fwrite(arr, 4, n, stdout);
