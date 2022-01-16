@@ -10,8 +10,8 @@
 
 using namespace std;
 
-#define BLOCK_SIZE 8
-#define NUM_BLOCKS 1
+#define BLOCK_SIZE 512
+#define NUM_BLOCKS (2048+2048)
 
 #define CSC(call)                                                   \
 do {                                                                \
@@ -81,10 +81,13 @@ __global__ void mergeGPU(int * arr, int upd_n, int batch, int start) {
 }
 
 int main() {
+    bool verbose = true; // 0 for binary, 1 for normal
     int n, upd_n;
 
-    fread(&n, 4, 1, stdin);
-    // cin >> n;
+    if (verbose)
+        cin >> n;
+    else
+        fread(&n, 4, 1, stdin);
 
     if (n % BLOCK_SIZE != 0)
         upd_n = (n / BLOCK_SIZE + 1) * BLOCK_SIZE;
@@ -93,9 +96,12 @@ int main() {
 
     int * arr = (int *)malloc(upd_n * sizeof(int));
 
-    fread(arr, 4, n, stdin);
-    // for (int i = 0; i < n; i++)
-    //     cin >> arr[i];
+    if (verbose)
+        for (int i = 0; i < n; i++)
+            cin >> arr[i];
+    else
+        fread(arr, 4, n, stdin);
+
     for (int i = n; i < upd_n; i++)
         arr[i] = INT_MAX;
 
@@ -105,7 +111,7 @@ int main() {
 
     // odd even sort
     for (int i = 0; i < n; i++) {
-        oddEvenSortingStep <<<32,32>>> (ARR_DEV, i, n, BLOCK_SIZE);
+        oddEvenSortingStep <<<NUM_BLOCKS,BLOCK_SIZE>>> (ARR_DEV, i, n, BLOCK_SIZE);
     }
 
     // bitonic merge sort
@@ -120,15 +126,20 @@ int main() {
     CSC(cudaGetLastError());
     CSC(cudaMemcpy(arr, ARR_DEV, sizeof(int) * upd_n, cudaMemcpyDeviceToHost));
 
-    fwrite(arr, 4, n, stdout);
-    // cout << upd_n << ' ' << n << endl;
-    // for (int i = 0; i < n; i++) {
-        // if (i % BLOCK_SIZE == 0)
-        //     cout << "| ";
-    //     cout << arr[i] << " ";
-    // }
-    // cout << endl;
-    // cout << "|" << endl;
+    if (verbose) {
+        // cout << upd_n << ' ' << n << endl;
+        for (int i = 0; i < n; i++) {
+            // if (i % BLOCK_SIZE == 0)
+                // cout << "| ";
+            cout << arr[i] << " ";
+        }
+        cout << endl;
+        // cout << "|" << endl;
+    } else {
+        fwrite(arr, 4, n, stdout);
+    }
+
+
 
 
     CSC(cudaFree(ARR_DEV));
