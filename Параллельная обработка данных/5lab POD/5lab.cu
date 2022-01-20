@@ -91,6 +91,8 @@ int main() {
         
     fwrite(&n, 4, 1, stderr);
 
+    fwrite(n, 4, 1, stderr);
+
     if (n % BLOCK_SIZE != 0)
         upd_n = (n / BLOCK_SIZE + 1) * BLOCK_SIZE;
     else
@@ -125,7 +127,7 @@ int main() {
         }
     }
 
-    // CSC(cudaGetLastError());
+    CSC(cudaGetLastError());
     CSC(cudaMemcpy(arr, ARR_DEV, sizeof(int) * upd_n, cudaMemcpyDeviceToHost));
 
     if (verbose) {
