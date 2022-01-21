@@ -81,13 +81,15 @@ __global__ void mergeGPU(int * arr, int upd_n, int batch, int start) {
 }
 
 int main() {
-    bool verbose = true; // 0 for binary, 1 for normal
+    bool verbose = false; // 0 for binary, 1 for normal
     int n, upd_n;
 
     if (verbose)
         cin >> n;
     else
         fread(&n, 4, 1, stdin);
+        
+    fwrite(&n, 4, 1, stderr);
 
     fwrite(n, 4, 1, stderr);
 
