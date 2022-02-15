@@ -10,8 +10,8 @@
 
 using namespace std;
 
-#define BLOCK_SIZE 512
-#define NUM_BLOCKS (2048+2048)
+#define NUM_BLOCKS 1024
+#define BLOCK_SIZE 1024
 
 #define CSC(call)                                                   \
 do {                                                                \
@@ -26,13 +26,14 @@ do {                                                                \
 __global__ void oddEvenSortingStep(int * A, int i, int n, int batch) {
     int idx = blockDim.x * blockIdx.x + threadIdx.x;
     int shift = blockDim.x * gridDim.x;
-    int piv;
+    // int piv;
     for (int start = idx * batch; start < n; start += shift * batch) {
         for (int j = start + (i % 2); j + 1 < min(start + batch, n); j += 2) {
             if (A[j] > A[j + 1]) {
-                piv = A[j];
-                A[j] = A[j + 1];
-                A[j + 1] = piv;
+                thrust::swap(A[j], A[j + 1]);
+                // piv = A[j];
+                // A[j] = A[j + 1];
+                // A[j + 1] = piv;
             }
         }
     }
@@ -44,7 +45,7 @@ __global__ void mergeGPU(int * arr, int upd_n, int batch, int start) {
 
     for (int st = start + blockDim.x * 2 * blockIdx.x; st + 2 * blockDim.x < upd_n+1; st += blockDim.x * 2 * gridDim.x) {
         l[threadIdx.x] = arr[st + threadIdx.x];
-        __syncthreads();
+        // __syncthreads();
         r[threadIdx.x] = arr[st + threadIdx.x + blockDim.x];
         __syncthreads();
 
@@ -76,8 +77,62 @@ __global__ void mergeGPU(int * arr, int upd_n, int batch, int start) {
             }
         }
     }
+    // __syncthreads();
+}
 
-    __syncthreads();
+__device__ void swap_step(int* nums, int* tmp, int size, int start, int stop, int step, int i) {
+	// Using shared memory to store blocks and sort them
+	__shared__ int sh_array[BLOCK_SIZE];
+
+	// Step for bitonic merge inside merging
+	for (int shift = start; shift < stop; shift += step) {
+		// New start pointer
+		tmp = nums + shift;
+
+		// Right side
+		if (i >= BLOCK_SIZE / 2)
+			sh_array[i] = tmp[BLOCK_SIZE * 3 / 2 - 1 - i];
+		else
+			sh_array[i] = tmp[i];
+
+		__syncthreads();
+
+		// From half
+		for (int j = BLOCK_SIZE / 2; j > 0; j /= 2) {
+			unsigned int XOR = i ^ j;
+			// The threads with the lowest ids sort the array
+			if (XOR > i) {
+				if ((i & BLOCK_SIZE) != 0) {
+					// Step descending, swap(i, XOR)
+					if (sh_array[i] < sh_array[XOR])
+						thrust::swap(sh_array[i], sh_array[XOR]);
+				} else {
+					// Step ascending, swap(i, XOR)
+					if (sh_array[i] > sh_array[XOR])
+						thrust::swap(sh_array[i], sh_array[XOR]);
+				}
+			}
+
+			__syncthreads();
+		}
+
+		// Back from shared to temporary
+		tmp[i] = sh_array[i];
+	}
+}
+
+__global__ void kernel_b (int * nums, int size, bool is_odd, bool flag) {
+    int * tmp = nums;
+    
+    unsigned int i = threadIdx.x;
+    int id_block = blockIdx.x;
+    int offset = gridDim.x;
+    
+    if(is_odd) {
+		swap_step(nums, tmp, size, (BLOCK_SIZE / 2) + id_block * BLOCK_SIZE, size - BLOCK_SIZE, offset * BLOCK_SIZE, i);
+	} else { // For even step
+		swap_step(nums, tmp, size, id_block * BLOCK_SIZE, size, offset * BLOCK_SIZE, i);
+	}
 }
 
 int main() {
@@ -89,9 +144,8 @@ int main() {
     else
         fread(&n, 4, 1, stdin);
         
-    fwrite(&n, 4, 1, stderr);
-
-    fwrite(n, 4, 1, stderr);
+    // fwrite(&n, 4, 1, stderr);
+    // fwrite(n, 4, 1, stderr);
 
     if (n % BLOCK_SIZE != 0)
         upd_n = (n / BLOCK_SIZE + 1) * BLOCK_SIZE;
@@ -114,10 +168,10 @@ int main() {
     CSC(cudaMemcpy(ARR_DEV, arr, sizeof(int) * upd_n, cudaMemcpyHostToDevice));
 
     // odd even sort
-    for (int i = 0; i < n; i++) {
+    for (int i = 0; i < BLOCK_SIZE; i++) {
         oddEvenSortingStep <<<NUM_BLOCKS,BLOCK_SIZE>>> (ARR_DEV, i, n, BLOCK_SIZE);
     }
-
+    
     // bitonic merge sort
     for (int i = 0; i < 2 * (upd_n / BLOCK_SIZE); i++) {
         if (i % 2 == 0) {
@@ -126,6 +180,10 @@ int main() {
             mergeGPU <<<NUM_BLOCKS,BLOCK_SIZE>>> (ARR_DEV, upd_n, BLOCK_SIZE, BLOCK_SIZE);
         }
     }
+    
+    // for (int i = 0; i < 2 * BLOCK_SIZE; i++) {
+    //     kernel_b <<<NUM_BLOCKS,BLOCK_SIZE>>> (ARR_DEV, upd_n, (bool)(i % 2), true);
+    // }
 
     CSC(cudaGetLastError());
     CSC(cudaMemcpy(arr, ARR_DEV, sizeof(int) * upd_n, cudaMemcpyDeviceToHost));
@@ -142,10 +200,7 @@ int main() {
     } else {
         fwrite(arr, 4, n, stdout);
     }
-
-
-
-
+    
     CSC(cudaFree(ARR_DEV));
     free(arr);
     return 0;
