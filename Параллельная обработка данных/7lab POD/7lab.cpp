@@ -9,6 +9,7 @@
 using namespace std;
 
 #define _i(x,y,z) arr[(x) + (y) * (xp * xl) + (z) * (xp * xl) * (yp * yl)]
+#define _in(x,y,z) next[(x) + (y) * (xp * xl) + (z) * (xp * xl) * (yp * yl)]
 
 int main() {
     int xp, yp, zp;                                         //сетка процессов
@@ -93,7 +94,7 @@ int main() {
                     }
                     
                     
-                    next[x + y * (xp * xl) + z * (xp * xl) * (yp * yl)] = ((u_left_ + u_right_) * h2x + (u_front_ + u_back_) * h2y + (u_down_ + u_up_) * h2z) / (2 * (h2x + h2y + h2z));
+                    _in(x,y,z) = ((u_left_ + u_right_) * h2x + (u_front_ + u_back_) * h2y + (u_down_ + u_up_) * h2z) / (2 * (h2x + h2y + h2z));
                 }
             }
         }
@@ -105,7 +106,7 @@ int main() {
         for (int z = 0; z < zp * zl; z++) {
             for (int y = 0; y < yp * yl; y++) {
                 for (int x = 0; x < xp * xl; x++) {
-                    if (abs(next[x + y * (xp * xl) + z * (xp * xl) * (yp * yl)] - _i(x, y, z)) >= eps) {
+                    if (abs(_in(x,y,z) - _i(x, y, z)) >= eps) {
                         f = true;
                         //cout << abs(next[x + y * (xp * xl) + z * (xp * xl) * (yp * yl)] - _i(x, y, z)) << ' ' << endl;
                     }
