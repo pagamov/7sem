@@ -132,7 +132,7 @@ __global__ void bitonic_sort_step(int *nums, int j, int k, int size) {
 }
 
 int main(int argc, char *argv[]) {
-	bool verbose = true; // 0 for binary, 1 for normal
+	bool verbose = false; // 0 for binary, 1 for normal
 	int size, upd_size;
 
 	// Allocating + inputting
