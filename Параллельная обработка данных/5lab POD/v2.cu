@@ -181,7 +181,7 @@ int main() {
 		CSC(cudaGetLastError());
 	}
 
-	CSC(cudaMemcpy(data, dev_data, sizeof(int) * upd_n, cudaMemcpyDeviceToHost))
+	CSC(cudaMemcpy(data, dev_data, sizeof(int) * upd_n, cudaMemcpyDeviceToHost));
 
 	if (verbose) {
         for (int i = 0; i < n; i++)
