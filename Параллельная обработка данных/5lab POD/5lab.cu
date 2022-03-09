@@ -15,8 +15,8 @@ do {                                                                \
     }                                                               \
 } while(0)
 
-#define NUM_BLOCKS 1
-#define BLOCK_SIZE 8
+#define NUM_BLOCKS 10
+#define BLOCK_SIZE 1024
 
 __global__ void oddEvenSortingStep(int * A, int i, int n, int batch) {
     int idx = blockDim.x * blockIdx.x + threadIdx.x;
