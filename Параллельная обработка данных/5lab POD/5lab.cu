@@ -146,6 +146,12 @@ int main() {
         cin >> n;
     else
         fread(&n, 4, 1, stdin);
+<<<<<<< HEAD
+=======
+
+    // fwrite(&n, 4, 1, stderr);
+    // fwrite(n, 4, 1, stderr);
+>>>>>>> 2760bdd97f751ca1dd09f06761cc48e68cdcfb7f
 
     if (n % BLOCK_SIZE != 0)
         upd_n = (n / BLOCK_SIZE + 1) * BLOCK_SIZE;
@@ -171,14 +177,18 @@ int main() {
     for (int i = 0; i < BLOCK_SIZE; i++) {
         oddEvenSortingStep <<<NUM_BLOCKS,BLOCK_SIZE>>> (ARR_DEV, i, n, BLOCK_SIZE);
     }
-    
+
     // bitonic merge sort
-    // for (int i = 0; i < 2 * (upd_n / BLOCK_SIZE); i++) {
-    //     if (i % 2 == 0) {
-    //         mergeGPU <<<NUM_BLOCKS,BLOCK_SIZE>>> (ARR_DEV, upd_n, BLOCK_SIZE, 0);
-    //     } else {
-    //         mergeGPU <<<NUM_BLOCKS,BLOCK_SIZE>>> (ARR_DEV, upd_n, BLOCK_SIZE, BLOCK_SIZE);
-    //     }
+    for (int i = 0; i < 2 * (upd_n / BLOCK_SIZE); i++) {
+        if (i % 2 == 0) {
+            mergeGPU <<<NUM_BLOCKS,BLOCK_SIZE>>> (ARR_DEV, upd_n, BLOCK_SIZE, 0);
+        } else {
+            mergeGPU <<<NUM_BLOCKS,BLOCK_SIZE>>> (ARR_DEV, upd_n, BLOCK_SIZE, BLOCK_SIZE);
+        }
+    }
+
+    // for (int i = 0; i < 2 * BLOCK_SIZE; i++) {
+    //     kernel_b <<<NUM_BLOCKS,BLOCK_SIZE>>> (ARR_DEV, upd_n, (bool)(i % 2), true);
     // }
     
     for (int i = 0; i < 2 * BLOCK_SIZE; i++) {
@@ -200,7 +210,7 @@ int main() {
     } else {
         fwrite(arr, 4, n, stdout);
     }
-    
+
     CSC(cudaFree(ARR_DEV));
     free(arr);
     return 0;
