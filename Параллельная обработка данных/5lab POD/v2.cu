@@ -27,6 +27,22 @@ do {                                                                \
 #define NUM_BLOCKS 10
 #define BLOCK_SIZE 1024
 
+__global__ void oddEvenSortingStep(int * A, int i, int n, int batch) {
+    int idx = blockDim.x * blockIdx.x + threadIdx.x;
+    int shift = blockDim.x * gridDim.x;
+    // int piv;
+    for (int start = idx * batch; start < n; start += shift * batch) {
+        for (int j = start + (i % 2); j + 1 < min(start + batch, n); j += 2) {
+            if (A[j] > A[j + 1]) {
+                thrust::swap(A[j], A[j + 1]);
+                // piv = A[j];
+                // A[j] = A[j + 1];
+                // A[j + 1] = piv;
+            }
+        }
+    }
+}
+
 __device__ void swap_step(int* nums, int* tmp, int size, int start, int stop, int step, int i) {
 	// Using shared memory to store blocks and sort them
 	__shared__ int sh_array[BLOCK_SIZE];
@@ -90,7 +106,7 @@ __global__ void bitonic_sort_step(int *nums, int j, int k, int size) {
 	__shared__ int sh_array[BLOCK_SIZE];
 
 	// Temporary array for splitting into blocks
-	int* tmp = nums;
+	int * tmp = nums;
 
 	// Every thread gets exactly one value in the unsorted array
 	unsigned int i = threadIdx.x;
@@ -140,7 +156,6 @@ int main() {
     else
         fread(&n, 4, 1, stdin);
 
-	// To the degree of 2^n (1024 max)
 	upd_n = ceil((double)n / BLOCK_SIZE) * BLOCK_SIZE;
 	int * data = (int *)malloc(sizeof(int) * upd_n);
 	int * dev_data;
@@ -159,15 +174,19 @@ int main() {
 
 	// Pre sort of all blocks by bitonic sort
 	// Main step
-	for (int k = 2; k <= upd_n; k *= 2) {
-		if (k > BLOCK_SIZE)
-			break;
-		// Merge and split step
-		for (int j = k / 2; j > 0; j /= 2) {
-			bitonic_sort_step<<<NUM_BLOCKS, BLOCK_SIZE>>>(dev_data, j, k, upd_n);
-			CSC(cudaGetLastError());
-		}
-	}
+	// for (int k = 2; k <= upd_n; k *= 2) {
+	// 	if (k > BLOCK_SIZE)
+	// 		break;
+	// 	// Merge and split step
+	// 	for (int j = k / 2; j > 0; j /= 2) {
+	// 		bitonic_sort_step<<<NUM_BLOCKS, BLOCK_SIZE>>>(dev_data, j, k, upd_n);
+	// 		CSC(cudaGetLastError());
+	// 	}
+	// }
+
+	for (int i = 0; i < BLOCK_SIZE; i++) {
+        oddEvenSortingStep <<<NUM_BLOCKS,BLOCK_SIZE>>> (dev_data, i, n, BLOCK_SIZE);
+    }
 
 	/*
 	Implementation of odd-even sort
