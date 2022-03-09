@@ -123,11 +123,11 @@ __device__ void swap_step(int* nums, int* tmp, int size, int start, int stop, in
 
 __global__ void kernel_b (int * nums, int size, bool is_odd, bool flag) {
     int * tmp = nums;
-    
+
     unsigned int i = threadIdx.x;
     int id_block = blockIdx.x;
     int offset = gridDim.x;
-    
+
     if(is_odd) {
 		swap_step(nums, tmp, size, (BLOCK_SIZE / 2) + id_block * BLOCK_SIZE, size - BLOCK_SIZE, offset * BLOCK_SIZE, i);
 	} else { // For even step
@@ -143,7 +143,7 @@ int main() {
         cin >> n;
     else
         fread(&n, 4, 1, stdin);
-        
+
     // fwrite(&n, 4, 1, stderr);
     // fwrite(n, 4, 1, stderr);
 
@@ -171,7 +171,7 @@ int main() {
     for (int i = 0; i < BLOCK_SIZE; i++) {
         oddEvenSortingStep <<<NUM_BLOCKS,BLOCK_SIZE>>> (ARR_DEV, i, n, BLOCK_SIZE);
     }
-    
+
     // bitonic merge sort
     for (int i = 0; i < 2 * (upd_n / BLOCK_SIZE); i++) {
         if (i % 2 == 0) {
@@ -180,7 +180,7 @@ int main() {
             mergeGPU <<<NUM_BLOCKS,BLOCK_SIZE>>> (ARR_DEV, upd_n, BLOCK_SIZE, BLOCK_SIZE);
         }
     }
-    
+
     // for (int i = 0; i < 2 * BLOCK_SIZE; i++) {
     //     kernel_b <<<NUM_BLOCKS,BLOCK_SIZE>>> (ARR_DEV, upd_n, (bool)(i % 2), true);
     // }
@@ -200,7 +200,7 @@ int main() {
     } else {
         fwrite(arr, 4, n, stdout);
     }
-    
+
     CSC(cudaFree(ARR_DEV));
     free(arr);
     return 0;
