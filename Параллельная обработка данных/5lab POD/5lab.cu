@@ -7,6 +7,7 @@
 #include <thrust/functional.h>
 #include <thrust/host_vector.h>
 #include <thrust/device_vector.h>
+#include <thrust/sort.h>
 
 using namespace std;
 
@@ -44,16 +45,18 @@ __global__ void mergeGPU(int * arr, int upd_n, int batch, int start) {
     __shared__ int r[BLOCK_SIZE];
 
     for (int st = start + blockDim.x * 2 * blockIdx.x; st + 2 * blockDim.x < upd_n+1; st += blockDim.x * 2 * gridDim.x) {
+        
+        
+        
+        // trust::sort(&arr[st + threadIdx.x])
         l[threadIdx.x] = arr[st + threadIdx.x];
         // __syncthreads();
         r[threadIdx.x] = arr[st + threadIdx.x + blockDim.x];
         __syncthreads();
-
+        
         if (threadIdx.x == 0) {
-            int rc = 0;
-            int lc = 0;
-            int it = st; //?
-
+            int rc = 0, lc = 0, it = st; //?
+        
             // int count = 0;
             while (true) {
                 // count++;
@@ -123,11 +126,11 @@ __device__ void swap_step(int* nums, int* tmp, int size, int start, int stop, in
 
 __global__ void kernel_b (int * nums, int size, bool is_odd, bool flag) {
     int * tmp = nums;
-    
+
     unsigned int i = threadIdx.x;
     int id_block = blockIdx.x;
     int offset = gridDim.x;
-    
+
     if(is_odd) {
 		swap_step(nums, tmp, size, (BLOCK_SIZE / 2) + id_block * BLOCK_SIZE, size - BLOCK_SIZE, offset * BLOCK_SIZE, i);
 	} else { // For even step
@@ -143,9 +146,6 @@ int main() {
         cin >> n;
     else
         fread(&n, 4, 1, stdin);
-        
-    // fwrite(&n, 4, 1, stderr);
-    // fwrite(n, 4, 1, stderr);
 
     if (n % BLOCK_SIZE != 0)
         upd_n = (n / BLOCK_SIZE + 1) * BLOCK_SIZE;
@@ -173,17 +173,17 @@ int main() {
     }
     
     // bitonic merge sort
-    for (int i = 0; i < 2 * (upd_n / BLOCK_SIZE); i++) {
-        if (i % 2 == 0) {
-            mergeGPU <<<NUM_BLOCKS,BLOCK_SIZE>>> (ARR_DEV, upd_n, BLOCK_SIZE, 0);
-        } else {
-            mergeGPU <<<NUM_BLOCKS,BLOCK_SIZE>>> (ARR_DEV, upd_n, BLOCK_SIZE, BLOCK_SIZE);
-        }
-    }
-    
-    // for (int i = 0; i < 2 * BLOCK_SIZE; i++) {
-    //     kernel_b <<<NUM_BLOCKS,BLOCK_SIZE>>> (ARR_DEV, upd_n, (bool)(i % 2), true);
+    // for (int i = 0; i < 2 * (upd_n / BLOCK_SIZE); i++) {
+    //     if (i % 2 == 0) {
+    //         mergeGPU <<<NUM_BLOCKS,BLOCK_SIZE>>> (ARR_DEV, upd_n, BLOCK_SIZE, 0);
+    //     } else {
+    //         mergeGPU <<<NUM_BLOCKS,BLOCK_SIZE>>> (ARR_DEV, upd_n, BLOCK_SIZE, BLOCK_SIZE);
+    //     }
     // }
+    
+    for (int i = 0; i < 2 * BLOCK_SIZE; i++) {
+        kernel_b <<<NUM_BLOCKS,BLOCK_SIZE>>> (ARR_DEV, upd_n, (bool)(i % 2), true);
+    }
 
     CSC(cudaGetLastError());
     CSC(cudaMemcpy(arr, ARR_DEV, sizeof(int) * upd_n, cudaMemcpyDeviceToHost));
