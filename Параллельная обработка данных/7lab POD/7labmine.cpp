@@ -35,8 +35,11 @@ int main() {
     // инициализация начальных значений
     for (int z = 0; z < zp * zl; z++)
         for (int y = 0; y < yp * yl; y++)
-            for (int x = 0; x < xp * xl; x++)
+            for (int x = 0; x < xp * xl; x++) {
                 arr[x + y * (xp * xl) + z * (xp * xl) * (yp * yl)] = u_0;
+                next[x + y * (xp * xl) + z * (xp * xl) * (yp * yl)] = u_0;
+            }
+                
     
     double hx = xL / (double)(xp * xl), hy = yL / (double)(yp * yl), hz = zL / (double)(zp * zl);
     double h2x = hx * hx, h2y = hy * hy, h2z = hz * hz;
@@ -46,16 +49,13 @@ int main() {
     double u_down_, u_up_, u_left_, u_right_, u_front_, u_back_;
     bool f = true;
     int iter = 0;
-    while(f) {
+    while (f) {
         cout << "iter " << iter++ << endl;
         // считать значения в next
         for (int z = 0; z < zp * zl; z++) {
             for (int y = 0; y < yp * yl; y++) {
                 for (int x = 0; x < xp * xl; x++) {
-                    
                     // u_down_, u_up_, u_left_, u_right_, u_front_, u_back_;
-                    
-                    
                     if (x == 0) {
                         u_left_ = u_left;
                         u_right_ = _i(x + 1, y, z);
@@ -79,16 +79,15 @@ int main() {
                     }
                     
                     if (z == 0) {
-                        u_down_ =u_down;
-                        u_up_ =  _i(x, y, z + 1);
+                        u_down_ = u_down;
+                        u_up_ = _i(x, y, z + 1);
                     } else if (z == zp * zl - 1) {
-                        u_down_ =_i(x, y, z - 1);
-                        u_up_ =  u_up;
+                        u_down_ = _i(x, y, z - 1);
+                        u_up_ = u_up;
                     } else {
-                        u_down_ =_i(x, y, z - 1);
-                        u_up_ =  _i(x, y, z + 1);
+                        u_down_ = _i(x, y, z - 1);
+                        u_up_ = _i(x, y, z + 1);
                     }
-                    
                     
                     _in(x,y,z) = ((u_left_ + u_right_) * h2x + (u_front_ + u_back_) * h2y + (u_down_ + u_up_) * h2z) / (2 * (h2x + h2y + h2z));
                 }
@@ -97,7 +96,7 @@ int main() {
         
         // проверять ошибку
         // bool f = true;
-        eps = 0.1;
+        eps = 0.5;
         f = false;
         for (int z = 0; z < zp * zl; z++) {
             for (int y = 0; y < yp * yl; y++) {
@@ -133,11 +132,6 @@ int main() {
         
         // и выходить если ошибка меньше eps
     }
-    
-    
-    
-    
-    
     // запись в файл 
     // ofstream myfile;
     // myfile.open(file);
