@@ -8,7 +8,7 @@
 
 using namespace std;
 
-#define _i(x,y,z) arr[(x) + (y) * (xp * xl) + (z) * (xp * xl) * (yp * yl)]
+#define _i(x,y,z)  arr[(x) + (y) * (xp * xl) + (z) * (xp * xl) * (yp * yl)]
 #define _in(x,y,z) next[(x) + (y) * (xp * xl) + (z) * (xp * xl) * (yp * yl)]
 
 int main() {
@@ -37,21 +37,24 @@ int main() {
         for (int y = 0; y < yp * yl; y++)
             for (int x = 0; x < xp * xl; x++) {
                 arr[x + y * (xp * xl) + z * (xp * xl) * (yp * yl)] = u_0;
-                next[x + y * (xp * xl) + z * (xp * xl) * (yp * yl)] = u_0;
+                // next[x + y * (xp * xl) + z * (xp * xl) * (yp * yl)] = u_0;
             }
                 
     
     double hx = xL / (double)(xp * xl), hy = yL / (double)(yp * yl), hz = zL / (double)(zp * zl);
-    double h2x = hx * hx, h2y = hy * hy, h2z = hz * hz;
-    h2x = 1.0 / h2x; h2y = 1.0 / h2y; h2z = 1.0 / h2z;
+    double h2x = 1.0 / (hx * hx), h2y = 1.0 / (hy * hy), h2z = 1.0 / (hz * hz);
     
     
     double u_down_, u_up_, u_left_, u_right_, u_front_, u_back_;
     bool f = true;
     int iter = 0;
+    double err;
     while (f) {
         cout << "iter " << iter++ << endl;
         // считать значения в next
+        eps = 0.5;
+        err = 0.0;
+        f = false;
         for (int z = 0; z < zp * zl; z++) {
             for (int y = 0; y < yp * yl; y++) {
                 for (int x = 0; x < xp * xl; x++) {
@@ -90,33 +93,22 @@ int main() {
                     }
                     
                     _in(x,y,z) = ((u_left_ + u_right_) * h2x + (u_front_ + u_back_) * h2y + (u_down_ + u_up_) * h2z) / (2 * (h2x + h2y + h2z));
+                    
+                    err = max(err, abs(_in(x,y,z) - _i(x,y,z)));
                 }
             }
         }
         
-        // проверять ошибку
-        // bool f = true;
-        eps = 0.5;
-        f = false;
-        for (int z = 0; z < zp * zl; z++) {
-            for (int y = 0; y < yp * yl; y++) {
-                for (int x = 0; x < xp * xl; x++) {
-                    if (abs(_in(x,y,z) - _i(x,y,z)) >= eps) {
-                        f = true;
-                        //cout << abs(next[x + y * (xp * xl) + z * (xp * xl) * (yp * yl)] - _i(x, y, z)) << ' ' << endl;
-                    }
-                }
-            }
+        if (err > eps) {
+            f = true;
+            cout << "err: " << err << ' ' << endl;
         }
-        
+
         // swap
         tmp = next;
         next = arr;
         arr = tmp;
         
-        // if (iter > 10) {
-        //     break;
-        // }
         
         for (int z = 0; z < zp * zl; z++) {
             for (int y = 0; y < yp * yl; y++) {
@@ -128,29 +120,22 @@ int main() {
             cout << endl;
         }
         
-        cout << "-/-/-/-/-/-/-/-/-" << endl;
-        
-        // и выходить если ошибка меньше eps
+        if (iter > 10) {
+            break;
+        }
     }
-    // запись в файл 
-    // ofstream myfile;
-    // myfile.open(file);
+    
     FILE * file;
     file = fopen(filename.c_str(), "w");
     for (int z = 0; z < zp * zl; z++) {
         for (int y = 0; y < yp * yl; y++) {
             for (int x = 0; x < xp * xl; x++) {
-                // myfile << std::fixed << std::setprecision(6) << arr[x + y * (xp * xl) + z * (xp * xl) * (yp * yl)] << ' ';
                 fprintf(file, "%.7e ", arr[x + y * (xp * xl) + z * (xp * xl) * (yp * yl)]);
-                // вопрос с выводом мантисы то ли 6 то ли 7
             }
-            // myfile << endl; // потом убрать
             fprintf(file, "\n");
         }
-        // myfile << endl; // потом убрать
         fprintf(file, "\n");
     }
-    // myfile.close();
     fclose(file);
     free(arr);
     free(next);
