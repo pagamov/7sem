@@ -37,14 +37,10 @@ int main() {
         for (int y = 0; y < yp * yl; y++)
             for (int x = 0; x < xp * xl; x++) {
                 arr[x + y * (xp * xl) + z * (xp * xl) * (yp * yl)] = u_0;
-<<<<<<< HEAD
-
-=======
                 next[x + y * (xp * xl) + z * (xp * xl) * (yp * yl)] = u_0;
             }
-                
-    
->>>>>>> 30e901b7c78409b3668197e0ec2220581a0a30b2
+
+
     double hx = xL / (double)(xp * xl), hy = yL / (double)(yp * yl), hz = zL / (double)(zp * zl);
     double h2x = hx * hx, h2y = hy * hy, h2z = hz * hz;
     h2x = 1.0 / h2x; h2y = 1.0 / h2y; h2z = 1.0 / h2z;
@@ -59,14 +55,7 @@ int main() {
         for (int z = 0; z < zp * zl; z++) {
             for (int y = 0; y < yp * yl; y++) {
                 for (int x = 0; x < xp * xl; x++) {
-<<<<<<< HEAD
-
                     // u_down_, u_up_, u_left_, u_right_, u_front_, u_back_;
-
-
-=======
-                    // u_down_, u_up_, u_left_, u_right_, u_front_, u_back_;
->>>>>>> 30e901b7c78409b3668197e0ec2220581a0a30b2
                     if (x == 0) {
                         u_left_ = u_left;
                         u_right_ = _i(x + 1, y, z);
@@ -99,12 +88,7 @@ int main() {
                         u_down_ = _i(x, y, z - 1);
                         u_up_ = _i(x, y, z + 1);
                     }
-<<<<<<< HEAD
 
-
-=======
-                    
->>>>>>> 30e901b7c78409b3668197e0ec2220581a0a30b2
                     _in(x,y,z) = ((u_left_ + u_right_) * h2x + (u_front_ + u_back_) * h2y + (u_down_ + u_up_) * h2z) / (2 * (h2x + h2y + h2z));
                 }
             }
@@ -148,16 +132,7 @@ int main() {
 
         // и выходить если ошибка меньше eps
     }
-<<<<<<< HEAD
-
-
-
-
-
     // запись в файл
-=======
-    // запись в файл 
->>>>>>> 30e901b7c78409b3668197e0ec2220581a0a30b2
     // ofstream myfile;
     // myfile.open(file);
     FILE * file;
