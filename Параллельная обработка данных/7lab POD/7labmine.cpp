@@ -42,16 +42,10 @@ int main() {
 
 
     double hx = xL / (double)(xp * xl), hy = yL / (double)(yp * yl), hz = zL / (double)(zp * zl);
-<<<<<<< HEAD
-    double h2x = 1.0 / (hx * hx), h2y = 1.0 / (hy * hy), h2z = 1.0 / (hz * hz);
-    
-    
-=======
     double h2x = hx * hx, h2y = hy * hy, h2z = hz * hz;
     h2x = 1.0 / h2x; h2y = 1.0 / h2y; h2z = 1.0 / h2z;
 
 
->>>>>>> 68f7364af02104334be43eada632f29071297037
     double u_down_, u_up_, u_left_, u_right_, u_front_, u_back_;
     bool f = true;
     int iter = 0;
@@ -105,12 +99,6 @@ int main() {
                 }
             }
         }
-<<<<<<< HEAD
-        
-        if (err > eps) {
-            f = true;
-            cout << "err: " << err << ' ' << endl;
-=======
 
         // проверять ошибку
         // bool f = true;
@@ -125,23 +113,17 @@ int main() {
                     }
                 }
             }
->>>>>>> 68f7364af02104334be43eada632f29071297037
         }
 
         // swap
         tmp = next;
         next = arr;
         arr = tmp;
-<<<<<<< HEAD
-        
-        
-=======
 
         // if (iter > 10) {
         //     break;
         // }
 
->>>>>>> 68f7364af02104334be43eada632f29071297037
         for (int z = 0; z < zp * zl; z++) {
             for (int y = 0; y < yp * yl; y++) {
                 for (int x = 0; x < xp * xl; x++) {
@@ -151,14 +133,6 @@ int main() {
             }
             cout << endl;
         }
-<<<<<<< HEAD
-        
-        if (iter > 10) {
-            break;
-        }
-    }
-    
-=======
 
         cout << "-/-/-/-/-/-/-/-/-" << endl;
 
@@ -167,7 +141,6 @@ int main() {
     // запись в файл
     // ofstream myfile;
     // myfile.open(file);
->>>>>>> 68f7364af02104334be43eada632f29071297037
     FILE * file;
     file = fopen(filename.c_str(), "w");
     for (int z = 0; z < zp * zl; z++) {
