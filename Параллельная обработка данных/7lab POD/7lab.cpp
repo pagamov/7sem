@@ -11,9 +11,9 @@ using namespace std;
 
 // Индексация внутри блока
 #define _i(i, j, k) (((k) + 1) * (dimensions[on_y] + 2) * (dimensions[on_x] + 2) + ((j) + 1) * (dimensions[on_x] + 2) + (i) + 1)
-#define _iz(id) (((id) / (dimensions[on_x] + 2) / (dimensions[on_y] + 2)) - 1)
-#define _iy(id) ((((id) % ((dimensions[on_x] + 2) * (dimensions[on_y] + 2))) / (dimensions[on_x] + 2)) - 1)
-#define _ix(id) ((id) % (dimensions[on_x] + 2) - 1)
+// #define _iz(id) (((id) / (dimensions[on_x] + 2) / (dimensions[on_y] + 2)) - 1)
+// #define _iy(id) ((((id) % ((dimensions[on_x] + 2) * (dimensions[on_y] + 2))) / (dimensions[on_x] + 2)) - 1)
+// #define _ix(id) ((id) % (dimensions[on_x] + 2) - 1)
 
 // Индексация по блокам (процессам)
 #define _ib(i, j, k) ((k) * blocks[on_y] * blocks[on_x] + (j) * blocks[on_x] + (i))
@@ -98,7 +98,7 @@ int main(int argc, char *argv[]) {
             for (k = 0; k < dimensions[on_z]; k++)
                 for (j = 0; j < dimensions[on_y]; j++)
                     buff[j + k * dimensions[on_y]] = data[_i(dimensions[on_x] - 1, j, k)];
-                    
+
             MPI_Send(buff, dimensions[on_y] * dimensions[on_z], MPI_DOUBLE, _ib(ib + 1, jb, kb), 0, MPI_COMM_WORLD);
         }
 
@@ -228,14 +228,14 @@ int main(int argc, char *argv[]) {
         temp = next;
         next = data;
         data = temp;
-        
+
     } while (difference > eps);
-    
-    
-    
-    
-    
-    
+
+
+
+
+
+
 
     if (id != 0) {
         for (k = 0; k < dimensions[on_z]; k++) {
@@ -248,7 +248,7 @@ int main(int argc, char *argv[]) {
     } else {
         FILE * file;
         file = fopen(filename.c_str(), "w");
-        
+
         for (kb = 0; kb < blocks[on_z]; kb++) {
             for (k = 0; k < dimensions[on_z]; k++) {
                 for (jb = 0; jb < blocks[on_y]; jb++) {

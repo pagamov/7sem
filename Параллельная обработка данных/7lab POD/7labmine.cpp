@@ -19,7 +19,7 @@ int main() {
     double xL, yL, zL;                                      //размер полотка из ячеек
     double u_down, u_up, u_left, u_right, u_front, u_back;  //гранич условия
     double u_0;                                             //начальное значение
-    
+
     cin >> xp >> yp >> zp;
     cin >> xl >> yl >> zl;
     cin >> filename;
@@ -27,11 +27,11 @@ int main() {
     cin >> xL >> yL >> zL;
     cin >> u_down >> u_up >> u_left >> u_right >> u_front >> u_back;
     cin >> u_0;
-    
+
     double * arr = (double *)malloc(sizeof(double) * xp * xl * yp * yl * zp * zl);
     double * next =(double *)malloc(sizeof(double) * xp * xl * yp * yl * zp * zl);
     double * tmp;
-    
+
     // инициализация начальных значений
     for (int z = 0; z < zp * zl; z++)
         for (int y = 0; y < yp * yl; y++)
@@ -39,12 +39,19 @@ int main() {
                 arr[x + y * (xp * xl) + z * (xp * xl) * (yp * yl)] = u_0;
                 // next[x + y * (xp * xl) + z * (xp * xl) * (yp * yl)] = u_0;
             }
-                
-    
+
+
     double hx = xL / (double)(xp * xl), hy = yL / (double)(yp * yl), hz = zL / (double)(zp * zl);
+<<<<<<< HEAD
     double h2x = 1.0 / (hx * hx), h2y = 1.0 / (hy * hy), h2z = 1.0 / (hz * hz);
     
     
+=======
+    double h2x = hx * hx, h2y = hy * hy, h2z = hz * hz;
+    h2x = 1.0 / h2x; h2y = 1.0 / h2y; h2z = 1.0 / h2z;
+
+
+>>>>>>> 68f7364af02104334be43eada632f29071297037
     double u_down_, u_up_, u_left_, u_right_, u_front_, u_back_;
     bool f = true;
     int iter = 0;
@@ -69,7 +76,7 @@ int main() {
                         u_left_ = _i(x - 1, y, z);
                         u_right_ =_i(x + 1, y, z);
                     }
-                    
+
                     if (y == 0) {
                         u_front_ = u_front;
                         u_back_ = _i(x, y - 1, z);
@@ -80,7 +87,7 @@ int main() {
                         u_front_ =_i(x, y + 1, z);
                         u_back_ = _i(x, y - 1, z);
                     }
-                    
+
                     if (z == 0) {
                         u_down_ = u_down;
                         u_up_ = _i(x, y, z + 1);
@@ -91,25 +98,50 @@ int main() {
                         u_down_ = _i(x, y, z - 1);
                         u_up_ = _i(x, y, z + 1);
                     }
-                    
+
                     _in(x,y,z) = ((u_left_ + u_right_) * h2x + (u_front_ + u_back_) * h2y + (u_down_ + u_up_) * h2z) / (2 * (h2x + h2y + h2z));
                     
                     err = max(err, abs(_in(x,y,z) - _i(x,y,z)));
                 }
             }
         }
+<<<<<<< HEAD
         
         if (err > eps) {
             f = true;
             cout << "err: " << err << ' ' << endl;
+=======
+
+        // проверять ошибку
+        // bool f = true;
+        eps = 0.5;
+        f = false;
+        for (int z = 0; z < zp * zl; z++) {
+            for (int y = 0; y < yp * yl; y++) {
+                for (int x = 0; x < xp * xl; x++) {
+                    if (abs(_in(x,y,z) - _i(x,y,z)) >= eps) {
+                        f = true;
+                        //cout << abs(next[x + y * (xp * xl) + z * (xp * xl) * (yp * yl)] - _i(x, y, z)) << ' ' << endl;
+                    }
+                }
+            }
+>>>>>>> 68f7364af02104334be43eada632f29071297037
         }
 
         // swap
         tmp = next;
         next = arr;
         arr = tmp;
+<<<<<<< HEAD
         
         
+=======
+
+        // if (iter > 10) {
+        //     break;
+        // }
+
+>>>>>>> 68f7364af02104334be43eada632f29071297037
         for (int z = 0; z < zp * zl; z++) {
             for (int y = 0; y < yp * yl; y++) {
                 for (int x = 0; x < xp * xl; x++) {
@@ -119,12 +151,23 @@ int main() {
             }
             cout << endl;
         }
+<<<<<<< HEAD
         
         if (iter > 10) {
             break;
         }
     }
     
+=======
+
+        cout << "-/-/-/-/-/-/-/-/-" << endl;
+
+        // и выходить если ошибка меньше eps
+    }
+    // запись в файл
+    // ofstream myfile;
+    // myfile.open(file);
+>>>>>>> 68f7364af02104334be43eada632f29071297037
     FILE * file;
     file = fopen(filename.c_str(), "w");
     for (int z = 0; z < zp * zl; z++) {
