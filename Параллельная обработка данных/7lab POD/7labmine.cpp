@@ -8,8 +8,8 @@
 
 using namespace std;
 
-#define _i(x,y,z)  arr[(x) + (y) * (xp * xl) + (z) * (xp * xl) * (yp * yl)]
-#define _in(x,y,z) next[(x) + (y) * (xp * xl) + (z) * (xp * xl) * (yp * yl)]
+#define _i(x,y,z)  arr[(x+1) + (y+1) * (xp * xl) + (z+1) * (xp * xl) * (yp * yl)]
+#define _in(x,y,z) next[(x+1) + (y+1) * (xp * xl) + (z+1) * (xp * xl) * (yp * yl)]
 
 int main() {
     int xp, yp, zp;                                         //сетка процессов
@@ -28,15 +28,15 @@ int main() {
     cin >> u_down >> u_up >> u_left >> u_right >> u_front >> u_back;
     cin >> u_0;
 
-    double * arr = (double *)malloc(sizeof(double) * xp * xl * yp * yl * zp * zl);
-    double * next =(double *)malloc(sizeof(double) * xp * xl * yp * yl * zp * zl);
+    double * arr = (double *)malloc(sizeof(double) * (xp * xl + 2) * (yp * yl + 2) * (zp * zl + 2));
+    double * next =(double *)malloc(sizeof(double) * (xp * xl + 2) * (yp * yl + 2) * (zp * zl + 2));
     double * tmp;
 
     // инициализация начальных значений
     for (int z = 0; z < zp * zl; z++)
         for (int y = 0; y < yp * yl; y++)
             for (int x = 0; x < xp * xl; x++) {
-                arr[x + y * (xp * xl) + z * (xp * xl) * (yp * yl)] = u_0;
+                _i(x,y,z) = u_0;
                 // next[x + y * (xp * xl) + z * (xp * xl) * (yp * yl)] = u_0;
             }
 
@@ -48,8 +48,12 @@ int main() {
     int iter = 0;
     double err;
     
+    // заполнение граничных значений
+    
+    
+    
     while (f) {
-        cout << "iter " << iter++ << endl;
+        // cout << "iter " << iter++ << endl;
         err = 0.0;
         for (int z = 0; z < zp * zl; z++) {
             for (int y = 0; y < yp * yl; y++) {
@@ -117,9 +121,11 @@ int main() {
         //     }   cout << endl;
         // }
         // 
-        // if (iter > 10) {
-        //     break;
-        // }
+        
+        iter++;
+        if (iter > 10) {
+            break;
+        }
         // 
         // cout << "-/-/-/-/-/-/-/-/-" << endl;
 
