@@ -45,8 +45,8 @@ int main(int argc, char *argv[]) {
     MPI_Comm_rank(MPI_COMM_WORLD, &id);
 
     if (id == 0) {
-        cin >> blocks[0] >> blocks[1] >> blocks[2];
-        cin >> dimensions[0] >> dimensions[1] >> dimensions[2];
+        cin >> blocks[on_x] >> blocks[on_y] >> blocks[on_z];
+        cin >> dimensions[on_x] >> dimensions[on_y] >> dimensions[on_z];
         cin >> filename;
         cin >> eps;
         cin >> l[on_x] >> l[on_y] >> l[on_z];
@@ -65,11 +65,7 @@ int main(int argc, char *argv[]) {
     hy = l[on_y] / (double)(dimensions[on_y] * blocks[on_y]);
     hz = l[on_z] / (double)(dimensions[on_z] * blocks[on_z]);
 
-    // We need hx^2 hy^2 hz^2
-    // To a negative degree
     double h2x = 1.0 / (hx * hx), h2y = 1.0 / (hy * hy), h2z = 1.0 / (hz * hz);
-
-    // Divisor as well
     double divisor = 2 * (h2x + h2y + h2z);
 
     // initiale bloks ids 3D
