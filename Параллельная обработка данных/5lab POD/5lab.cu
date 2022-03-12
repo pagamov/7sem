@@ -1,96 +1,128 @@
+#include "cuda_runtime.h"
+#include "device_launch_parameters.h"
+
 #include <stdio.h>
+#include <math.h>
 #include <stdlib.h>
-#include <iostream>
-#include <thrust/swap.h>
+#include <sys/time.h>
+#include <thrust/extrema.h>
+#include <thrust/device_vector.h>
+#include <algorithm>
+#include <limits>
 
 using namespace std;
 
-#define CSC(call)                                                   \
-do {                                                                \
-    cudaError_t res = call;                                         \
-    if (res != cudaSuccess) {                                       \
-        fprintf(stderr, "ERROR in %s:%d. Message: %s\n",            \
-                __FILE__, __LINE__, cudaGetErrorString(res));       \
-        exit(0);                                                    \
-    }                                                               \
+#define CSC(call)  													\
+do {																\
+	cudaError_t res = call;											\
+	if (res != cudaSuccess) {										\
+		fprintf(stderr, "ERROR in %s:%d. Message: %s\n",			\
+				__FILE__, __LINE__, cudaGetErrorString(res));		\
+		exit(0);													\
+	}																\
 } while(0)
 
-#define NUM_BLOCKS 10
-#define BLOCK_SIZE 1024
-
-__global__ void oddEvenSortingStep(int * A, int i, int n, int batch) {
-    int idx = blockDim.x * blockIdx.x + threadIdx.x;
-    int shift = blockDim.x * gridDim.x;
-    for (int start = idx * batch; start < n; start += shift * batch)
-        for (int j = start + (i % 2); j + 1 < min(start + batch, n); j += 2)
-            if (A[j] > A[j + 1])
-                thrust::swap(A[j], A[j + 1]);
+int pow(int n, int p) {
+    int res = 1;
+    for (int i = 0; i < p; i++)
+        res *= n;
+    return res;
 }
 
-__device__ void swp(int* nums, int* tmp, int size, int start, int stop, int step, int i) {
-	__shared__ int sh[BLOCK_SIZE];
+__global__ void  B_shared(int * data, int size_p, int upd_n, int sign_shift_p) {
+	int sign_shift = 1 << sign_shift_p;
+    int tmp;
 
-	for (int shift = start; shift < stop; shift += step) {
-		tmp = nums + shift;
+	__shared__ int buff[512];
 
-		if (i >= BLOCK_SIZE / 2)
-			sh[i] = tmp[BLOCK_SIZE * 3 / 2 - 1 - i];
-		else
-			sh[i] = tmp[i];
+	for(int i = (int)blockIdx.x * 512; i < upd_n; i += (int)gridDim.x * 512) {
+		for (int k = threadIdx.x; k < 512; k += blockDim.x)
+			buff[k] = data[i + k];
 		__syncthreads();
 
-		for (int j = BLOCK_SIZE / 2; j > 0; j /= 2) {
-			unsigned int XOR = i ^ j;
-			if (XOR > i) {
-				if ((i & BLOCK_SIZE) != 0) {
-					if (sh[i] < sh[XOR])
-						thrust::swap(sh[i], sh[XOR]);
-				} else {
-					if (sh[i] > sh[XOR])
-						thrust::swap(sh[i], sh[XOR]);
+		for(int size_k_p = size_p; size_k_p >= 1; size_k_p--) {
+			int size_k = 1 << size_k_p;
+			for(int j = threadIdx.x; j < 256; j += blockDim.x) {
+				int z = (int)(j >> (size_k_p-1)) * size_k + (j & ((1 << (size_k_p-1)) - 1));
+				if ((buff[z] > buff[z + (size_k >> 1)]) != (((i+z) / sign_shift) & 1)) {
+					tmp = buff[z];
+                    buff[z] = buff[z + (size_k >> 1)];
+                    buff[z + (size_k >> 1)] = tmp;
 				}
 			}
+
 			__syncthreads();
 		}
-		tmp[i] = sh[i];
+		for(int k = threadIdx.x; k < 512; k += blockDim.x)
+			data[i + k] = buff[k];
+		__syncthreads();
 	}
 }
 
-__global__ void bitonic_merge(int * arr, int size, bool is_odd) {
-	int * tmp = arr;
-	if (is_odd)
-		swp(arr, tmp, size, (BLOCK_SIZE / 2) + blockIdx.x * BLOCK_SIZE, size - BLOCK_SIZE, gridDim.x * BLOCK_SIZE, threadIdx.x);
-	else
-		swp(arr, tmp, size, blockIdx.x * BLOCK_SIZE, size, gridDim.x * BLOCK_SIZE, threadIdx.x);
+
+__global__ void  B_global(int* data, int size_p, int upd_n, int sign_shift_p) {
+	int sign_shift = 1 << sign_shift_p;
+    int tmp;
+	int size = 1 << size_p;
+	for (int i = blockIdx.x * size; i < upd_n; i += gridDim.x * size)
+		for (int j = threadIdx.x; j < size / 2; j += blockDim.x)
+			if ((data[i+j] > data[i+j + size / 2]) == (((i+j) / sign_shift) % 2 == 0)) {
+				tmp = data[i+j];
+                data[i+j] = data[i+j + size / 2];
+                data[i+j + size / 2] = tmp;
+			}
 }
 
 int main() {
-	int n, upd_n;
-	fread(&n, 4, 1, stdin);
-	upd_n = ceil((double)n / BLOCK_SIZE) * BLOCK_SIZE;
-	int * data = (int *)malloc(sizeof(int) * upd_n);
-	int * dev_data;
-	CSC(cudaMalloc(&dev_data, sizeof(int) * upd_n));
-	fread(data, 4, n, stdin);
+    bool verbose = true; // 0 for binary, 1 for normal
+    int n, upd_n;
 
-	for (int i = n; i < upd_n; ++i)
-		data[i] = INT_MAX;
+    if (verbose)
+        cin >> n;
+    else
+        fread(&n, 4, 1, stdin);
 
-	CSC(cudaMemcpy(dev_data, data, sizeof(int) * upd_n, cudaMemcpyHostToDevice));
+    int p = 0;
+    while (pow(2,p) < n)
+        p++;
+    upd_n = pow(2, p);
 
-	for (int i = 0; i < BLOCK_SIZE; i++)
-        oddEvenSortingStep <<<NUM_BLOCKS,BLOCK_SIZE>>> (dev_data, i, n, BLOCK_SIZE);
+	int * arr = (int *)malloc(4 * upd_n);
+
+    if (verbose)
+        for (int i = 0; i < n; i++)
+            cin >> arr[i];
+    else
+        fread(arr, 4, n, stdin);
+
+	for (int i = n; i < upd_n; i++)
+		arr[i] = INT_MAX;
+
+	int * dev_arr;
+	CSC(cudaMalloc(&dev_arr, 4 * upd_n));
+	CSC(cudaMemcpy(dev_arr, arr, 4 * upd_n, cudaMemcpyHostToDevice));
+
+	for(int i = 1; pow(2,i) <= upd_n; i++) {
+		for(int k = i; k >= 1; k--) {
+			if(k <= 9)
+				B_shared<<<128, 128>>>(dev_arr, k, upd_n, i);
+			else
+				B_global<<<128, 1024>>>(dev_arr, k, upd_n, i);
+		}
+	}
+
 	CSC(cudaGetLastError());
+	CSC(cudaMemcpy(arr, dev_arr, 4 * upd_n, cudaMemcpyDeviceToHost));
 
-	for (int i = 0; i < 2 * (upd_n / BLOCK_SIZE); i++)
-		bitonic_merge<<<NUM_BLOCKS, BLOCK_SIZE>>>(dev_data, upd_n, (bool)(i % 2));
-	CSC(cudaGetLastError());
+    if (verbose) {
+        for (int i = 0; i < n; i++)
+            cout << arr[i] << " ";
+        cout << endl;
+    } else {
+        fwrite(arr, 4, n, stdout);
+    }
 
-	CSC(cudaMemcpy(data, dev_data, sizeof(int) * upd_n, cudaMemcpyDeviceToHost));
-
-    fwrite(data, 4, n, stdout);
-
-	CSC(cudaFree(dev_data));
-	free(data);
+    CSC(cudaFree(dev_arr));
+	free(arr);
 	return 0;
 }
