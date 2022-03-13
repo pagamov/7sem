@@ -68,16 +68,16 @@ int main(int argc, char *argv[]) {
 
     int mx = max(max(dim[0], dim[1]), dim[2]);
     buff = (double *)malloc(sizeof(double) * (mx + 2) * (mx + 2));
-    
+
 
     for (i = 0; i < dim[0]; i++) {
         for (j = 0; j < dim[1]; j++) {
             for (k = 0; k < dim[2]; k++) {
                 data[_i(i, j, k)] = u_0;
-            }    
+            }
         }
     }
-        
+
 
     // int it = 0;
     double difference = 0.0;
@@ -261,7 +261,7 @@ int main(int argc, char *argv[]) {
         }
         fclose(file);
     }
-    
+
     MPI_Finalize();
     free(buff);
     free(data);
