@@ -4,16 +4,25 @@
 #include <math.h>
 #include "mpi.h"
 
-#define _i(i, j, k) (((k) + 1) * (nx + 2) * (ny + 2) + ((j) + 1) * (nx + 2) + (i) + 1)
-#define _ib(i, j, k) ((k) * nbx * nby + (j) * nbx + (i))
+using namespace std;
+
+#define _i(i, j, k) (((k) + 1) * (dim[0] + 2) * (dim[1] + 2) + ((j) + 1) * (dim[0] + 2) + (i) + 1)
+#define _ib(i, j, k) ((k) * box[0] * box[1] + (j) * box[0] + (i))
 
 int main(int argc, char* argv[]) {
-	int ib, jb, kb, nbx, nby, nbz, nx, ny, nz;
 	int id, numproc;
-	double lx, ly, lz, hx, hy, hz, bc_down, bc_up, bc_left, bc_right, bc_front, bc_back, u0;
-	double eps, cur_eps;
-	double *data, *temp, *next, *buff;
-	char fname[100];
+	int ib, jb, kb;
+	int box[3];
+	int dim[3];
+	string filename;
+	double l[3];
+	double hx, hy, hz;
+	double u[6];
+	bool f = true;
+
+	double u_0;
+	double eps, diff;
+	double * data, * temp, * next, * buff;
 
 	MPI_Status status;
 	MPI_Init(&argc, &argv);
@@ -23,264 +32,223 @@ int main(int argc, char* argv[]) {
 	MPI_Barrier(MPI_COMM_WORLD);
 
 	if (id == 0) {
-		scanf("%d %d %d", &nbx, &nby, &nbz);
-		scanf("%d %d %d", &nx, &ny, &nz);
-		scanf("%s", fname);
-		scanf("%lf", &eps);
-		scanf("%lf %lf %lf", &lx, &ly, &lz);
-		scanf("%lf %lf %lf %lf %lf %lf", &bc_down, &bc_up, &bc_left, &bc_right, &bc_front, &bc_back);
-		scanf("%lf", &u0);
+		cin >> box[0] >> box[1] >> box[2];
+		cin >> dim[0] >> dim[1] >> dim[2];
+		cin >> filename;
+		cin >> eps;
+		cin >> l[0] >> l[1] >> l[2];
+		cin >> u[4] >> u[5] >> u[0] >> u[1] >> u[2] >> u[3] >> u_0;
 	}
 
-	MPI_Bcast(&nx, 1, MPI_INT, 0, MPI_COMM_WORLD);
-	MPI_Bcast(&ny, 1, MPI_INT, 0, MPI_COMM_WORLD);
-	MPI_Bcast(&nz, 1, MPI_INT, 0, MPI_COMM_WORLD);
-	MPI_Bcast(&nbx, 1, MPI_INT, 0, MPI_COMM_WORLD);
-	MPI_Bcast(&nby, 1, MPI_INT, 0, MPI_COMM_WORLD);
-	MPI_Bcast(&nbz, 1, MPI_INT, 0, MPI_COMM_WORLD);
-	MPI_Bcast(&lx, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-	MPI_Bcast(&ly, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-	MPI_Bcast(&lz, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-	MPI_Bcast(&bc_down, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-	MPI_Bcast(&bc_up, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-	MPI_Bcast(&bc_left, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-	MPI_Bcast(&bc_right, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-	MPI_Bcast(&bc_front, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-	MPI_Bcast(&bc_back, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+	MPI_Bcast(dim, 3, MPI_INT, 0, MPI_COMM_WORLD);
+	MPI_Bcast(box, 3, MPI_INT, 0, MPI_COMM_WORLD);
 	MPI_Bcast(&eps, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-	MPI_Bcast(&u0, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+	MPI_Bcast(l, 3, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+	MPI_Bcast(u, 6, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+	MPI_Bcast(&u_0, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-	kb = id / (nbx * nby);
-	jb = id % (nbx * nby) / nbx;
-	ib = id % (nbx * nby) % nbx;
+	kb = id / (box[0] * box[1]);
+	jb = id % (box[0] * box[1]) / box[0];
+	ib = id % (box[0] * box[1]) % box[0];
 
-	hx = lx / (nx * nbx);
-	hy = ly / (ny * nby);
-	hz = lz / (nz * nbz);
+	hx = l[0] / (dim[0] * box[0]);
+	hy = l[1] / (dim[1] * box[1]);
+	hz = l[2] / (dim[2] * box[2]);
 
-	data = (double*)malloc(sizeof(double) * (nx + 2) * (ny + 2) * (nz + 2));
-	next = (double*)malloc(sizeof(double) * (nx + 2) * (ny + 2) * (nz + 2));
-	int buf_side1 = std::max(nx, ny);
-	int buf_side2 = std::max(ny, nz);
+	double h2x = 1.0 / (hx * hx), h2y = 1.0 / (hy * hy), h2z = 1.0 / (hz * hz);
 
-	buff = (double*)malloc(sizeof(double) * buf_side1 * buf_side2);
+	data = (double *)malloc(sizeof(double) * (dim[0] + 2) * (dim[1] + 2) * (dim[2] + 2));
+	next = (double *)malloc(sizeof(double) * (dim[0] + 2) * (dim[1] + 2) * (dim[2] + 2));
+
+	buff = (double *)malloc(sizeof(double) * max(dim[0], dim[1]) * max(dim[1], dim[2]));
 	int buffer_size;
-	MPI_Pack_size(buf_side1 * buf_side2, MPI_DOUBLE, MPI_COMM_WORLD, &buffer_size);
+	MPI_Pack_size(max(dim[0], dim[1]) * max(dim[1], dim[2]), MPI_DOUBLE, MPI_COMM_WORLD, &buffer_size);
 	buffer_size = 6 * (buffer_size + MPI_BSEND_OVERHEAD);
-	double* buffer = (double*)malloc(buffer_size);
+	double* buffer = (double *)malloc(buffer_size);
 	MPI_Buffer_attach(buffer, buffer_size);
 
-	for (int i = 0; i < nx; i++) {					// Инициализация блока
-		for (int j = 0; j < ny; j++) {
-			for (int k = 0; k < nz; k++) {
-				data[_i(i, j, k)] = u0;
-			}
+	double * allgbuff = (double *)malloc(sizeof(double) * box[0] * box[1] * box[2]);
+
+	for (int i = 0; i < dim[0]; i++)
+		for (int j = 0; j < dim[1]; j++)
+			for (int k = 0; k < dim[2]; k++)
+				data[_i(i, j, k)] = u_0;
+
+	for (int j = 0; j < dim[1]; j++) {
+		for (int k = 0; k < dim[2]; k++) {
+			data[_i(-1, j, k)] = u[0];
+			next[_i(-1, j, k)] = u[0];
 		}
 	}
 
-	for (int j = 0; j < ny; j++) {
-		for (int k = 0; k < nz; k++) {
-			data[_i(-1, j, k)] = bc_left;
-			next[_i(-1, j, k)] = bc_left;
+	for (int i = 0; i < dim[0]; i++) {
+		for (int k = 0; k < dim[2]; k++) {
+			data[_i(i, -1, k)] = u[2];
+			next[_i(i, -1, k)] = u[2];
 		}
 	}
 
-	for (int i = 0; i < nx; i++) {
-		for (int k = 0; k < nz; k++) {
-			data[_i(i, -1, k)] = bc_front;
-			next[_i(i, -1, k)] = bc_front;
+	for (int i = 0; i < dim[0]; i++) {
+		for (int j = 0; j < dim[1]; j++) {
+			data[_i(i, j, -1)] = u[4];
+			next[_i(i, j, -1)] = u[4];
 		}
 	}
 
-	for (int i = 0; i < nx; i++) {
-		for (int j = 0; j < ny; j++) {
-			data[_i(i, j, -1)] = bc_down;
-			next[_i(i, j, -1)] = bc_down;
+	for (int j = 0; j < dim[1]; j++) {
+		for (int k = 0; k < dim[2]; k++) {
+			data[_i(dim[0], j, k)] = u[1];
+			next[_i(dim[0], j, k)] = u[1];
 		}
 	}
 
-	for (int j = 0; j < ny; j++) {
-		for (int k = 0; k < nz; k++) {
-			data[_i(nx, j, k)] = bc_right;
-			next[_i(nx, j, k)] = bc_right;
+	for (int i = 0; i < dim[0]; i++) {
+		for (int k = 0; k < dim[2]; k++) {
+			data[_i(i, dim[1], k)] = u[3];
+			next[_i(i, dim[1], k)] = u[3];
 		}
 	}
 
-	for (int i = 0; i < nx; i++) {
-		for (int k = 0; k < nz; k++) {
-			data[_i(i, ny, k)] = bc_back;
-			next[_i(i, ny, k)] = bc_back;
+	for (int i = 0; i < dim[0]; i++) {
+		for (int j = 0; j < dim[1]; j++) {
+			data[_i(i, j, dim[2])] = u[5];
+			next[_i(i, j, dim[2])] = u[5];
 		}
 	}
 
-	for (int i = 0; i < nx; i++) {
-		for (int j = 0; j < ny; j++) {
-			data[_i(i, j, nz)] = bc_up;
-			next[_i(i, j, nz)] = bc_up;
-		}
-	}
-
-	cur_eps = eps + 1;
-	while (cur_eps >= eps) {
+	while (f) {
 		MPI_Barrier(MPI_COMM_WORLD);
-
-		if (ib + 1 < nbx) {
-			for (int j = 0; j < ny; j++) {
-				for (int k = 0; k < nz; k++) {
-					buff[j * nz + k] = data[_i(nx - 1, j, k)];
-				}
-			}
-			MPI_Bsend(buff, ny * nz, MPI_DOUBLE, _ib(ib + 1, jb, kb), id, MPI_COMM_WORLD);
+		if (ib + 1 < box[0]) {
+			for (int j = 0; j < dim[1]; j++)
+				for (int k = 0; k < dim[2]; k++)
+					buff[j * dim[2] + k] = data[_i(dim[0] - 1, j, k)];
+			MPI_Bsend(buff, dim[1] * dim[2], MPI_DOUBLE, _ib(ib + 1, jb, kb), id, MPI_COMM_WORLD);
 		}
 
-		if (jb + 1 < nby) {
-			for (int i = 0; i < nx; i++) {
-				for (int k = 0; k < nz; k++) {
-					buff[i * nz + k] = data[_i(i, ny - 1, k)];
-				}
-			}
-			MPI_Bsend(buff, nx * nz, MPI_DOUBLE, _ib(ib, jb + 1, kb), id, MPI_COMM_WORLD);
+		if (jb + 1 < box[1]) {
+			for (int i = 0; i < dim[0]; i++)
+				for (int k = 0; k < dim[2]; k++)
+					buff[i * dim[2] + k] = data[_i(i, dim[1] - 1, k)];
+			MPI_Bsend(buff, dim[0] * dim[2], MPI_DOUBLE, _ib(ib, jb + 1, kb), id, MPI_COMM_WORLD);
 		}
 
-		if (kb + 1 < nbz) {
-			for (int i = 0; i < nx; i++) {
-				for (int j = 0; j < ny; j++) {
-					buff[i * ny + j] = data[_i(i, j, nz - 1)];
-				}
-			}
-			MPI_Bsend(buff, nx * ny, MPI_DOUBLE, _ib(ib, jb, kb + 1), id, MPI_COMM_WORLD);
+		if (kb + 1 < box[2]) {
+			for (int i = 0; i < dim[0]; i++)
+				for (int j = 0; j < dim[1]; j++)
+					buff[i * dim[1] + j] = data[_i(i, j, dim[2] - 1)];
+			MPI_Bsend(buff, dim[0] * dim[1], MPI_DOUBLE, _ib(ib, jb, kb + 1), id, MPI_COMM_WORLD);
 		}
 
 		if (ib > 0) {
-			for (int j = 0; j < ny; j++) {
-				for (int k = 0; k < nz; k++) {
-					buff[j * nz + k] = data[_i(0, j, k)];
-				}
-			}
-			MPI_Bsend(buff, ny * nz, MPI_DOUBLE, _ib(ib - 1, jb, kb), id, MPI_COMM_WORLD);
+			for (int j = 0; j < dim[1]; j++)
+				for (int k = 0; k < dim[2]; k++)
+					buff[j * dim[2] + k] = data[_i(0, j, k)];
+			MPI_Bsend(buff, dim[1] * dim[2], MPI_DOUBLE, _ib(ib - 1, jb, kb), id, MPI_COMM_WORLD);
 		}
 
 		if (jb > 0) {
-			for (int i = 0; i < nx; i++) {
-				for (int k = 0; k < nz; k++) {
-					buff[i * nz + k] = data[_i(i, 0, k)];
-				}
-			}
-			MPI_Bsend(buff, nx * nz, MPI_DOUBLE, _ib(ib, jb - 1, kb), id, MPI_COMM_WORLD);
+			for (int i = 0; i < dim[0]; i++)
+				for (int k = 0; k < dim[2]; k++)
+					buff[i * dim[2] + k] = data[_i(i, 0, k)];
+			MPI_Bsend(buff, dim[0] * dim[2], MPI_DOUBLE, _ib(ib, jb - 1, kb), id, MPI_COMM_WORLD);
 		}
 
 		if (kb > 0) {
-			for (int i = 0; i < nx; i++) {
-				for (int j = 0; j < ny; j++) {
-					buff[i * ny + j] = data[_i(i, j, 0)];
-				}
-			}
-			MPI_Bsend(buff, nx * ny, MPI_DOUBLE, _ib(ib, jb, kb - 1), id, MPI_COMM_WORLD);
+			for (int i = 0; i < dim[0]; i++)
+				for (int j = 0; j < dim[1]; j++)
+					buff[i * dim[1] + j] = data[_i(i, j, 0)];
+			MPI_Bsend(buff, dim[0] * dim[1], MPI_DOUBLE, _ib(ib, jb, kb - 1), id, MPI_COMM_WORLD);
 		}
 
-		/*---------------------------------------------------------------------------------------------------------*/
 		if (ib > 0) {
-			MPI_Recv(buff, ny * nz, MPI_DOUBLE, _ib(ib - 1, jb, kb), _ib(ib - 1, jb, kb), MPI_COMM_WORLD, &status);
-			for (int j = 0; j < ny; j++) {
-				for (int k = 0; k < nz; k++) {
-					data[_i(-1, j, k)] = buff[j * nz + k];
-				}
-			}
+			MPI_Recv(buff, dim[1] * dim[2], MPI_DOUBLE, _ib(ib - 1, jb, kb), _ib(ib - 1, jb, kb), MPI_COMM_WORLD, &status);
+			for (int j = 0; j < dim[1]; j++)
+				for (int k = 0; k < dim[2]; k++)
+					data[_i(-1, j, k)] = buff[j * dim[2] + k];
 		}
 
 		if (jb > 0) {
-			MPI_Recv(buff, nx * nz, MPI_DOUBLE, _ib(ib, jb - 1, kb), _ib(ib, jb - 1, kb), MPI_COMM_WORLD, &status);
-			for (int i = 0; i < nx; i++) {
-				for (int k = 0; k < nz; k++) {
-					data[_i(i, -1, k)] = buff[i * nz + k];
-				}
-			}
+			MPI_Recv(buff, dim[0] * dim[2], MPI_DOUBLE, _ib(ib, jb - 1, kb), _ib(ib, jb - 1, kb), MPI_COMM_WORLD, &status);
+			for (int i = 0; i < dim[0]; i++)
+				for (int k = 0; k < dim[2]; k++)
+					data[_i(i, -1, k)] = buff[i * dim[2] + k];
 		}
 
 		if (kb > 0) {
-			MPI_Recv(buff, nx * ny, MPI_DOUBLE, _ib(ib, jb, kb - 1), _ib(ib, jb, kb - 1), MPI_COMM_WORLD, &status);
-			for (int i = 0; i < nx; i++) {
-				for (int j = 0; j < ny; j++) {
-					data[_i(i, j, -1)] = buff[i * ny + j];
-				}
-			}
+			MPI_Recv(buff, dim[0] * dim[1], MPI_DOUBLE, _ib(ib, jb, kb - 1), _ib(ib, jb, kb - 1), MPI_COMM_WORLD, &status);
+			for (int i = 0; i < dim[0]; i++)
+				for (int j = 0; j < dim[1]; j++)
+					data[_i(i, j, -1)] = buff[i * dim[1] + j];
 		}
 
-		if (ib + 1 < nbx) {
-			MPI_Recv(buff, ny * nz, MPI_DOUBLE, _ib(ib + 1, jb, kb), _ib(ib + 1, jb, kb), MPI_COMM_WORLD, &status);
-			for (int j = 0; j < ny; j++) {
-				for (int k = 0; k < nz; k++) {
-					data[_i(nx, j, k)] = buff[j * nz + k];
-				}
-			}
+		if (ib + 1 < box[0]) {
+			MPI_Recv(buff, dim[1] * dim[2], MPI_DOUBLE, _ib(ib + 1, jb, kb), _ib(ib + 1, jb, kb), MPI_COMM_WORLD, &status);
+			for (int j = 0; j < dim[1]; j++)
+				for (int k = 0; k < dim[2]; k++)
+					data[_i(dim[0], j, k)] = buff[j * dim[2] + k];
 		}
 
-		if (jb + 1 < nby) {
-			MPI_Recv(buff, nx * nz, MPI_DOUBLE, _ib(ib, jb + 1, kb), _ib(ib, jb + 1, kb), MPI_COMM_WORLD, &status);
-			for (int i = 0; i < nx; i++) {
-				for (int k = 0; k < nz; k++) {
-					data[_i(i, ny, k)] = buff[i * nz + k];
-				}
-			}
+		if (jb + 1 < box[1]) {
+			MPI_Recv(buff, dim[0] * dim[2], MPI_DOUBLE, _ib(ib, jb + 1, kb), _ib(ib, jb + 1, kb), MPI_COMM_WORLD, &status);
+			for (int i = 0; i < dim[0]; i++)
+				for (int k = 0; k < dim[2]; k++)
+					data[_i(i, dim[1], k)] = buff[i * dim[2] + k];
 		}
 
-		if (kb + 1 < nbz) {
-			MPI_Recv(buff, nx * ny, MPI_DOUBLE, _ib(ib, jb, kb + 1), _ib(ib, jb, kb + 1), MPI_COMM_WORLD, &status);
-			for (int i = 0; i < nx; i++) {
-				for (int j = 0; j < ny; j++) {
-					data[_i(i, j, nz)] = buff[i * ny + j];
-				}
-			}
+		if (kb + 1 < box[2]) {
+			MPI_Recv(buff, dim[0] * dim[1], MPI_DOUBLE, _ib(ib, jb, kb + 1), _ib(ib, jb, kb + 1), MPI_COMM_WORLD, &status);
+			for (int i = 0; i < dim[0]; i++)
+				for (int j = 0; j < dim[1]; j++)
+					data[_i(i, j, dim[2])] = buff[i * dim[1] + j];
 		}
 
 		MPI_Barrier(MPI_COMM_WORLD);
-		cur_eps = 0.0;
-		for (int i = 0; i < nx; i++) {
-			for (int j = 0; j < ny; j++) {
-				for (int k = 0; k < nz; k++) {
-					next[_i(i, j, k)] = 0.5 * ((data[_i(i + 1, j, k)] + data[_i(i - 1, j, k)]) / (hx * hx) +
-						(data[_i(i, j + 1, k)] + data[_i(i, j - 1, k)]) / (hy * hy) +
-						(data[_i(i, j, k + 1)] + data[_i(i, j, k - 1)]) / (hz * hz)) /
-						(1.0 / (hx * hx) + 1.0 / (hy * hy) + 1.0 / (hz * hz));
+		diff = 0.0;
+		for (int i = 0; i < dim[0]; i++) {
+			for (int j = 0; j < dim[1]; j++) {
+				for (int k = 0; k < dim[2]; k++) {
+					next[_i(i, j, k)] = 0.5 * ((data[_i(i + 1, j, k)] + data[_i(i - 1, j, k)]) * h2x +
+											   (data[_i(i, j + 1, k)] + data[_i(i, j - 1, k)]) * h2y +
+										       (data[_i(i, j, k + 1)] + data[_i(i, j, k - 1)]) * h2z) /
+											   (h2x + h2y + h2z);
 
-					cur_eps = fmax(cur_eps, fabs(next[_i(i, j, k)] - data[_i(i, j, k)]));
+					diff = fmax(diff, fabs(next[_i(i, j, k)] - data[_i(i, j, k)]));
 				}
 			}
 		}
 
+		MPI_Allgather(&diff, 1, MPI_DOUBLE, allgbuff, box[0] * box[1] * box[2], MPI_DOUBLE, MPI_COMM_WORLD);
+        f = false;
+        for (int i = 0; i < box[0] * box[1] * box[2]; i++)
+            if (allgbuff[i] > eps)
+                f = true;
 		temp = next;
 		next = data;
 		data = temp;
-
-		MPI_Allreduce(MPI_IN_PLACE, &cur_eps, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
 	}
 
 	if (id != 0) {
-		for (int k = 0; k < nz; k++) {
-			for (int j = 0; j < ny; j++) {
-				for (int i = 0; i < nx; i++) {
+		for (int k = 0; k < dim[2]; k++) {
+			for (int j = 0; j < dim[1]; j++) {
+				for (int i = 0; i < dim[0]; i++)
 					buff[i] = data[_i(i, j, k)];
-				}
-				MPI_Send(buff, nx, MPI_DOUBLE, 0, id, MPI_COMM_WORLD);
+				MPI_Send(buff, dim[0], MPI_DOUBLE, 0, id, MPI_COMM_WORLD);
 			}
 		}
 	} else {
-		FILE* f = fopen(fname, "w");
-		for (int kb = 0; kb < nbz; kb++) {
-			for (int k = 0; k < nz; k++) {
-				for (int jb = 0; jb < nby; jb++) {
-					for (int j = 0; j < ny; j++) {
-						for (int ib = 0; ib < nbx; ib++) {
-							if (_ib(ib, jb, kb) == 0) {
-								for (int i = 0; i < nx; i++) {
+		FILE* f = fopen(filename.c_str(), "w");
+		for (int kb = 0; kb < box[2]; kb++) {
+			for (int k = 0; k < dim[2]; k++) {
+				for (int jb = 0; jb < box[1]; jb++) {
+					for (int j = 0; j < dim[1]; j++) {
+						for (int ib = 0; ib < box[0]; ib++) {
+							if (_ib(ib, jb, kb) == 0)
+								for (int i = 0; i < dim[0]; i++)
 									buff[i] = data[_i(i, j, k)];
-								}
-							} else {
-								MPI_Recv(buff, nx, MPI_DOUBLE, _ib(ib, jb, kb), _ib(ib, jb, kb), MPI_COMM_WORLD, &status);
-							}
-							for (int i = 0; i < nx; i++) {
+							else
+								MPI_Recv(buff, dim[0], MPI_DOUBLE, _ib(ib, jb, kb), _ib(ib, jb, kb), MPI_COMM_WORLD, &status);
+							for (int i = 0; i < dim[0]; i++)
 								fprintf(f, "%.6e ", buff[i]);
-							}
 						}
 					}
 				}
@@ -289,6 +257,7 @@ int main(int argc, char* argv[]) {
 		fclose(f);
 	}
 	MPI_Finalize();
+	free(allgbuff);
 	free(data);
 	free(next);
 	free(buff);

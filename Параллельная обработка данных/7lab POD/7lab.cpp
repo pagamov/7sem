@@ -57,24 +57,24 @@ int main(int argc, char *argv[]) {
 
     int mm = max(max(dim[0], dim[1]), dim[2]) + 2;
     double * buff = (double *)malloc(sizeof(double) * mm * mm);
-    
+
     int buffer_size;
 	MPI_Pack_size(mm * mm, MPI_DOUBLE, MPI_COMM_WORLD, &buffer_size);
 	buffer_size = 6 * (buffer_size + MPI_BSEND_OVERHEAD);
 	double * buffer = (double *)malloc(buffer_size);
 	MPI_Buffer_attach(buffer, buffer_size);
-    
+
     double * allgbuff = (double *)malloc(sizeof(double) * box[0] * box[1] * box[2]);
-    
+
     for (i = 0; i < dim[0]; i++)
         for (j = 0; j < dim[1]; j++)
             for (k = 0; k < dim[2]; k++)
                 data[_i(i, j, k)] = u_0;
-                
+
     do {
-        
+
         MPI_Barrier(MPI_COMM_WORLD);
-        
+
         if (ib + 1 < box[0]) {
             for (k = 0; k < dim[2]; k++)
                 for (j = 0; j < dim[1]; j++)
@@ -95,7 +95,7 @@ int main(int argc, char *argv[]) {
                     buff[i + j * dim[0]] = data[_i(i, j, dim[2] - 1)];
             MPI_Bsend(buff, dim[0] * dim[1], MPI_DOUBLE, _ib(ib, jb, kb + 1), 0, MPI_COMM_WORLD);
         }
-        
+
         if (ib > 0) {
             for (k = 0; k < dim[2]; k++)
                 for (j = 0; j < dim[1]; j++)
@@ -185,7 +185,7 @@ int main(int argc, char *argv[]) {
                 for (i = 0; i < dim[0]; i++)
                     data[_i(i, j, dim[2])] = u[5];
         }
-        
+
         MPI_Barrier(MPI_COMM_WORLD);
 
         diff = 0.0;
@@ -200,7 +200,7 @@ int main(int argc, char *argv[]) {
                 }
             }
         }
-        
+
         MPI_Allgather(&diff, 1, MPI_DOUBLE, allgbuff, box[0] * box[1] * box[2], MPI_DOUBLE, MPI_COMM_WORLD);
         f = false;
         for (int i = 0; i < box[0] * box[1] * box[2]; i++)
