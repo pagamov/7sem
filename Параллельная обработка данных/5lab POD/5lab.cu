@@ -30,21 +30,20 @@ int pow(int n, int p) {
 }
 
 __global__ void  B_shared(int * data, int size_p, int upd_n, int sign_shift_p) {
-	int sign_shift = 1 << sign_shift_p;
     int tmp;
 
 	__shared__ int buff[512];
 
-	for(int i = (int)blockIdx.x * 512; i < upd_n; i += (int)gridDim.x * 512) {
+	for (int i = blockIdx.x * 512; i < upd_n; i += gridDim.x * 512) {
 		for (int k = threadIdx.x; k < 512; k += blockDim.x)
 			buff[k] = data[i + k];
 		__syncthreads();
 
-		for(int size_k_p = size_p; size_k_p >= 1; size_k_p--) {
+		for (int size_k_p = size_p; size_k_p >= 1; size_k_p--) {
 			int size_k = 1 << size_k_p;
-			for(int j = threadIdx.x; j < 256; j += blockDim.x) {
+			for (int j = threadIdx.x; j < 256; j += blockDim.x) {
 				int z = (int)(j >> (size_k_p-1)) * size_k + (j & ((1 << (size_k_p-1)) - 1));
-				if ((buff[z] > buff[z + (size_k >> 1)]) != (((i+z) / sign_shift) & 1)) {
+				if ((buff[z] > buff[z + (size_k >> 1)]) != (((i+z) / (1 << sign_shift_p)) & 1)) {
 					tmp = buff[z];
                     buff[z] = buff[z + (size_k >> 1)];
                     buff[z + (size_k >> 1)] = tmp;
@@ -61,12 +60,11 @@ __global__ void  B_shared(int * data, int size_p, int upd_n, int sign_shift_p) {
 
 
 __global__ void  B_global(int* data, int size_p, int upd_n, int sign_shift_p) {
-	int sign_shift = 1 << sign_shift_p;
     int tmp;
 	int size = 1 << size_p;
 	for (int i = blockIdx.x * size; i < upd_n; i += gridDim.x * size)
 		for (int j = threadIdx.x; j < size / 2; j += blockDim.x)
-			if ((data[i+j] > data[i+j + size / 2]) == (((i+j) / sign_shift) % 2 == 0)) {
+			if ((data[i+j] > data[i+j + size / 2]) == (((i+j) / (1 << sign_shift_p)) % 2 == 0)) {
 				tmp = data[i+j];
                 data[i+j] = data[i+j + size / 2];
                 data[i+j + size / 2] = tmp;
@@ -102,12 +100,12 @@ int main() {
 	CSC(cudaMalloc(&dev_arr, 4 * upd_n));
 	CSC(cudaMemcpy(dev_arr, arr, 4 * upd_n, cudaMemcpyHostToDevice));
 
-	for(int i = 1; pow(2,i) <= upd_n; i++) {
-		for(int k = i; k >= 1; k--) {
-			if(k <= 9)
-				B_shared<<<128, 128>>>(dev_arr, k, upd_n, i);
+	for (int i = 1; pow(2,i) <= upd_n; i++) {
+		for (int j = i; j >= 1; j--) {
+			if (j <= 9)
+				B_shared <<<128, 128>>> (dev_arr, j, upd_n, i);
 			else
-				B_global<<<128, 1024>>>(dev_arr, k, upd_n, i);
+				B_global <<<128, 1024>>> (dev_arr, j, upd_n, i);
 		}
 	}
 

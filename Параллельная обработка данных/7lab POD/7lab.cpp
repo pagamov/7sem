@@ -217,7 +217,7 @@ int main(int argc, char* argv[]) {
 			}
 		}
 
-		MPI_Allgather(&diff, 1, MPI_DOUBLE, allgbuff, box[0] * box[1] * box[2], MPI_DOUBLE, MPI_COMM_WORLD);
+		MPI_Allgather(&diff, 1, MPI_DOUBLE, allgbuff, 1, MPI_DOUBLE, MPI_COMM_WORLD);
 		MPI_Barrier(MPI_COMM_WORLD);
         f = false;
         for (int i = 0; i < box[0] * box[1] * box[2]; i++)
