@@ -12,6 +12,8 @@
 
 using namespace std;
 
+#define SR_S 512
+
 #define CSC(call)  													\
 do {																\
 	cudaError_t res = call;											\
@@ -29,45 +31,41 @@ int pow(int n, int p) {
     return res;
 }
 
-__global__ void  B_shared(int * data, int size_p, int upd_n, int sign_shift_p) {
+__global__ void  B_shared(int * arr, int size_p, int upd_n, int sign_s_p) {
     int tmp;
-
-	__shared__ int buff[512];
-
-	for (int i = blockIdx.x * 512; i < upd_n; i += gridDim.x * 512) {
-		for (int k = threadIdx.x; k < 512; k += blockDim.x)
-			buff[k] = data[i + k];
+	__shared__ int buf[SR_S];
+	for (int i = blockIdx.x * SR_S; i < upd_n; i += gridDim.x * SR_S) {
+		for (int k = threadIdx.x; k < SR_S; k += blockDim.x)
+			buf[k] = arr[i + k];
 		__syncthreads();
 
 		for (int size_k_p = size_p; size_k_p >= 1; size_k_p--) {
 			int size_k = 1 << size_k_p;
-			for (int j = threadIdx.x; j < 256; j += blockDim.x) {
+			for (int j = threadIdx.x; j < SR_S / 2; j += blockDim.x) {
 				int z = (int)(j >> (size_k_p-1)) * size_k + (j & ((1 << (size_k_p-1)) - 1));
-				if ((buff[z] > buff[z + (size_k >> 1)]) != (((i+z) / (1 << sign_shift_p)) & 1)) {
-					tmp = buff[z];
-                    buff[z] = buff[z + (size_k >> 1)];
-                    buff[z + (size_k >> 1)] = tmp;
+				if ((buf[z] > buf[z + (size_k >> 1)]) != (((i+z) / (1 << sign_s_p)) & 1)) {
+					tmp = buf[z];
+                    buf[z] = buf[z + (size_k >> 1)];
+                    buf[z + (size_k >> 1)] = tmp;
 				}
 			}
-
 			__syncthreads();
 		}
 		for(int k = threadIdx.x; k < 512; k += blockDim.x)
-			data[i + k] = buff[k];
+			arr[i + k] = buf[k];
 		__syncthreads();
 	}
 }
 
 
-__global__ void  B_global(int* data, int size_p, int upd_n, int sign_shift_p) {
-    int tmp;
-	int size = 1 << size_p;
+__global__ void  B_global(int * arr, int size_p, int upd_n, int sign_s_p) {
+    int tmp, size = 1 << size_p;
 	for (int i = blockIdx.x * size; i < upd_n; i += gridDim.x * size)
 		for (int j = threadIdx.x; j < size / 2; j += blockDim.x)
-			if ((data[i+j] > data[i+j + size / 2]) == (((i+j) / (1 << sign_shift_p)) % 2 == 0)) {
-				tmp = data[i+j];
-                data[i+j] = data[i+j + size / 2];
-                data[i+j + size / 2] = tmp;
+			if ((arr[i+j] > arr[i+j + size / 2]) == (((i+j) / (1 << sign_s_p)) % 2 == 0)) {
+				tmp = arr[i+j];
+                arr[i+j] = arr[i+j + size / 2];
+                arr[i+j + size / 2] = tmp;
 			}
 }
 

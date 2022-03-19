@@ -51,7 +51,7 @@ __global__ void kernalComputeDiff(double *data, double *next, int n_x, int n_y, 
 	int size = (n_x + 2) * (n_y + 2) * (n_z + 2);
 	int i, j, k;
 
-	for(int l = idx; l < size; l += offset)	{
+	for (int l = idx; l < size; l += offset)	{
 		i = l % (n_x + 2);
 		j = (l / (n_x + 2)) % (n_y + 2);
 		k = l / ((n_x + 2) * (n_y + 2));
@@ -271,16 +271,12 @@ int main(int argc, char *argv[]) {
 
 
 	int it = 0;
-	/*---------------------------------------------------------------------------------------------------------*/
 	while(1) {
 		MPI_Barrier(MPI_COMM_WORLD);
 		it++;
 		for(int dir = 0; dir < 2; dir++) {
 			if ((ib + dir) & 1) {
 				if (ib > 0) {
-					// for(j = 0; j < n_y; j++)
-					// 	for(k = 0; k < n_z; k++)
-					// 		buffs[j * n_z + k] = data[_i(0, j, k)];
 
 					kernalNJK_to_gbuff<<<64, 64>>>(dev_data, dev_buff, n_x, n_y, n_z, 0);
 					CSC(cudaMemcpy(buffs, dev_buff, sizeof(double) * n_x * n_y, cudaMemcpyDeviceToHost));
@@ -291,15 +287,9 @@ int main(int argc, char *argv[]) {
 					CSC(cudaMemcpy(dev_buff, buffr, sizeof(double) * n_x * n_y, cudaMemcpyHostToDevice));
 					kernalNJK_from_gbuff<<<64, 64>>>(dev_data, dev_buff, n_x, n_y, n_z, -1);
 
-					// for(j = 0; j < n_y; j++)
-					// 	for(k = 0; k < n_z; k++)
-					// 		data[_i(-1, j, k)] = buffr[j * n_z + k];
 				}
 			} else {
 				if (ib + 1 < nb_x) {
-					// for(j = 0; j < n_y; j++)
-					// 	for(k = 0; k < n_z; k++)
-					// 		buffs[j * n_z + k] = data[_i(n_x - 1, j, k)];
 
 					kernalNJK_to_gbuff<<<64, 64>>>(dev_data, dev_buff, n_x, n_y, n_z, n_x - 1);
 					CSC(cudaMemcpy(buffs, dev_buff, sizeof(double) * n_x * n_y, cudaMemcpyDeviceToHost));
@@ -310,9 +300,6 @@ int main(int argc, char *argv[]) {
 					CSC(cudaMemcpy(dev_buff, buffr, sizeof(double) * n_x * n_y, cudaMemcpyHostToDevice));
 					kernalNJK_from_gbuff<<<64, 64>>>(dev_data, dev_buff, n_x, n_y, n_z, n_x);
 
-					// for(j = 0; j < n_y; j++)
-					// 	for(k = 0; k < n_z; k++)
-					// 		data[_i(n_x, j, k)] = buffr[j * n_z + k];
 				}
 			}
 		}
