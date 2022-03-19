@@ -218,6 +218,7 @@ int main(int argc, char* argv[]) {
 		}
 
 		MPI_Allgather(&diff, 1, MPI_DOUBLE, allgbuff, box[0] * box[1] * box[2], MPI_DOUBLE, MPI_COMM_WORLD);
+		MPI_Barrier(MPI_COMM_WORLD);
         f = false;
         for (int i = 0; i < box[0] * box[1] * box[2]; i++)
             if (allgbuff[i] > eps)
@@ -236,7 +237,7 @@ int main(int argc, char* argv[]) {
 			}
 		}
 	} else {
-		FILE* f = fopen(filename.c_str(), "w");
+		FILE * f = fopen(filename.c_str(), "w");
 		for (int kb = 0; kb < box[2]; kb++) {
 			for (int k = 0; k < dim[2]; k++) {
 				for (int jb = 0; jb < box[1]; jb++) {
@@ -248,7 +249,7 @@ int main(int argc, char* argv[]) {
 							else
 								MPI_Recv(buff, dim[0], MPI_DOUBLE, _ib(ib, jb, kb), _ib(ib, jb, kb), MPI_COMM_WORLD, &status);
 							for (int i = 0; i < dim[0]; i++)
-								fprintf(f, "%.6e ", buff[i]);
+								fprintf(f, "%.7e ", buff[i]);
 						}
 					}
 				}
@@ -257,7 +258,7 @@ int main(int argc, char* argv[]) {
 		fclose(f);
 	}
 	MPI_Finalize();
-	free(allgbuff);
+	// free(allgbuff);
 	free(data);
 	free(next);
 	free(buff);
