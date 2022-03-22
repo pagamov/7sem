@@ -1,18 +1,12 @@
-#include "cuda_runtime.h"
-#include "device_launch_parameters.h"
-
 #include <stdio.h>
+#include <iostream>
 #include <math.h>
 #include <stdlib.h>
-#include <sys/time.h>
-#include <thrust/extrema.h>
-#include <thrust/device_vector.h>
-#include <algorithm>
-#include <limits>
 
 using namespace std;
 
 #define SR_S 512
+#define ull unsigned long long 
 
 #define CSC(call)  													\
 do {																\
@@ -31,46 +25,48 @@ int pow(int n, int p) {
     return res;
 }
 
-__global__ void  B_shared(int * arr, int size_p, int upd_n, int sign_s_p) {
-    int tmp;
+__global__ void B_shared(int * arr, int size_p, int upd_n, int sign_p) {
+	int tmp;
 	__shared__ int buf[SR_S];
-	for (int i = blockIdx.x * SR_S; i < upd_n; i += gridDim.x * SR_S) {
+	for (ull i = (ull)blockIdx.x * SR_S; i < upd_n; i += (ull)gridDim.x * SR_S) {
 		for (int k = threadIdx.x; k < SR_S; k += blockDim.x)
 			buf[k] = arr[i + k];
 		__syncthreads();
 
-		for (int size_k_p = size_p; size_k_p >= 1; size_k_p--) {
-			int size_k = 1 << size_k_p;
-			for (int j = threadIdx.x; j < SR_S / 2; j += blockDim.x) {
-				int z = (int)(j >> (size_k_p-1)) * size_k + (j & ((1 << (size_k_p-1)) - 1));
-				if ((buf[z] > buf[z + (size_k >> 1)]) != (((i+z) / (1 << sign_s_p)) & 1)) {
-					tmp = buf[z];
-                    buf[z] = buf[z + (size_k >> 1)];
-                    buf[z + (size_k >> 1)] = tmp;
+		for (ull size_k_p = size_p; size_k_p >= 1; size_k_p--) {
+			ull size_k = 1 << size_k_p;
+			for (ull j = threadIdx.x; j < SR_S / 2; j += blockDim.x) {
+				ull b = (ull)(j >> (size_k_p - 1)) * size_k + (j & ((1 << (size_k_p - 1)) - 1));
+				if ((buf[b] > buf[b + (size_k >> 1)]) != (((i + b) / (1 << sign_p)) & 1)) {
+					tmp = buf[b];
+					buf[b] = buf[b + (size_k >> 1)];
+					buf[b + (size_k >> 1)] = tmp;
 				}
 			}
 			__syncthreads();
 		}
-		for(int k = threadIdx.x; k < 512; k += blockDim.x)
+		for (int k = threadIdx.x; k < SR_S; k += blockDim.x)
 			arr[i + k] = buf[k];
 		__syncthreads();
 	}
 }
 
-
-__global__ void  B_global(int * arr, int size_p, int upd_n, int sign_s_p) {
-    int tmp, size = 1 << size_p;
-	for (int i = blockIdx.x * size; i < upd_n; i += gridDim.x * size)
-		for (int j = threadIdx.x; j < size / 2; j += blockDim.x)
-			if ((arr[i+j] > arr[i+j + size / 2]) == (((i+j) / (1 << sign_s_p)) % 2 == 0)) {
+__global__ void B_global(int * arr, int size_p, int upd_n, int sign_p) {
+	int tmp;
+	ull size = 1 << size_p;
+	for (ull i = (ull)blockIdx.x * size; i < upd_n; i += (ull)gridDim.x * size) {
+		for (ull j = threadIdx.x; j < size / 2; j += blockDim.x) {
+			if ((arr[i + j] > arr[i + j + size / 2]) == (((i + j) / (1 << sign_p)) % 2 == 0)) {
 				tmp = arr[i+j];
-                arr[i+j] = arr[i+j + size / 2];
-                arr[i+j + size / 2] = tmp;
+				arr[i + j] = arr[i + j + size / 2];
+				arr[i + j + size / 2] = tmp;
 			}
+		}
+	}
 }
 
 int main() {
-    bool verbose = true; // 0 for binary, 1 for normal
+    bool verbose = false; // 0 for binary, 1 for normal
     int n, upd_n;
 
     if (verbose)
@@ -79,7 +75,7 @@ int main() {
         fread(&n, 4, 1, stdin);
 
     int p = 0;
-    while (pow(2,p) < n)
+    while (pow(2, p) < n)
         p++;
     upd_n = pow(2, p);
 
@@ -98,16 +94,16 @@ int main() {
 	CSC(cudaMalloc(&dev_arr, 4 * upd_n));
 	CSC(cudaMemcpy(dev_arr, arr, 4 * upd_n, cudaMemcpyHostToDevice));
 
-	for (int i = 1; pow(2,i) <= upd_n; i++) {
+	for (int i = 1; pow(2, i) <= upd_n; i++) {
 		for (int j = i; j >= 1; j--) {
 			if (j <= 9)
-				B_shared <<<128, 128>>> (dev_arr, j, upd_n, i);
+				B_shared <<<64, 64>>> (dev_arr, j, upd_n, i);
 			else
-				B_global <<<128, 1024>>> (dev_arr, j, upd_n, i);
+				B_global <<<64, 128>>> (dev_arr, j, upd_n, i);
+			CSC(cudaDeviceSynchronize());
+			CSC(cudaGetLastError());
 		}
 	}
-
-	CSC(cudaGetLastError());
 	CSC(cudaMemcpy(arr, dev_arr, 4 * upd_n, cudaMemcpyDeviceToHost));
 
     if (verbose) {

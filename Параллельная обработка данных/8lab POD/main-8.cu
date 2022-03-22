@@ -307,11 +307,6 @@ int main(int argc, char *argv[]) {
 		for(int dir = 0; dir < 2; dir++) {
 			if ((jb + dir)& 1) {
 				if (jb > 0) {
-
-					// for(i = 0; i < n_x; i++)
-					// 	for(k = 0; k < n_z; k++)
-					// 		buffs[i * n_z + k] = data[_i(i, 0, k)];
-
 					kernalINK_to_gbuff<<<64, 64>>>(dev_data, dev_buff, n_x, n_y, n_z, 0);
 					CSC(cudaMemcpy(buffs, dev_buff, sizeof(double) * n_x * n_y, cudaMemcpyDeviceToHost));
 
@@ -320,17 +315,9 @@ int main(int argc, char *argv[]) {
 
 					CSC(cudaMemcpy(dev_buff, buffr, sizeof(double) * n_x * n_y, cudaMemcpyHostToDevice));
 					kernalINK_from_gbuff<<<64, 64>>>(dev_data, dev_buff, n_x, n_y, n_z, -1);
-
-					// for(i = 0; i < n_x; i++)
-					// 	for(k = 0; k < n_z; k++)
-					// 		data[_i(i, -1, k)] = buffr[i * n_z + k];
 				}
 			} else {
 				if (jb + 1 < nb_y) {
-					// for(i = 0; i < n_x; i++)
-					// 	for(k = 0; k < n_z; k++)
-					// 		buffs[i * n_z + k] = data[_i(i, n_y - 1, k)];
-
 					kernalINK_to_gbuff<<<64, 64>>>(dev_data, dev_buff, n_x, n_y, n_z, n_y - 1);
 					CSC(cudaMemcpy(buffs, dev_buff, sizeof(double) * n_x * n_y, cudaMemcpyDeviceToHost));
 
@@ -339,10 +326,6 @@ int main(int argc, char *argv[]) {
 
 					CSC(cudaMemcpy(dev_buff, buffr, sizeof(double) * n_x * n_y, cudaMemcpyHostToDevice));
 					kernalINK_from_gbuff<<<64, 64>>>(dev_data, dev_buff, n_x, n_y, n_z, n_y);
-
-					// for(i = 0; i < n_x; i++)
-					// 	for(k = 0; k < n_z; k++)
-					// 		data[_i(i, n_y, k)] = buffr[i * n_z + k];
 				}
 			}
 		}
@@ -351,11 +334,6 @@ int main(int argc, char *argv[]) {
 		for(int dir = 0; dir < 2; dir++) {
 			if ((kb + dir)& 1) {
 				if (kb > 0) {
-
-					// for(i = 0; i < n_x; i++)
-					// 	for(j = 0; j < n_y; j++)
-					// 		buffs[i * n_y + j] = data[_i(i, j, 0)];
-
 					kernalIJNt_to_gbuff<<<64, 64>>>(dev_data, dev_buff, n_x, n_y, n_z, 0);
 					CSC(cudaMemcpy(buffs, dev_buff, sizeof(double) * n_x * n_y, cudaMemcpyDeviceToHost));
 					
@@ -364,11 +342,6 @@ int main(int argc, char *argv[]) {
 
 					CSC(cudaMemcpy(dev_buff, buffr, sizeof(double) * n_x * n_y, cudaMemcpyHostToDevice));
 					kernalIJNt_from_gbuff<<<64, 64>>>(dev_data, dev_buff, n_x, n_y, n_z, -1);
-
-
-					// for(i = 0; i < n_x; i++)
-					// 	for(j = 0; j < n_y; j++)
-					// 		data[_i(i, j, -1)] = buffr[i * n_y + j];
 				}
 			} else {
 				if (kb + 1 < nb_z) {
