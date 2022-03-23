@@ -6,7 +6,7 @@
 using namespace std;
 
 #define SR_S 512
-#define ull unsigned long long 
+#define ull unsigned long long
 
 #define CSC(call)  													\
 do {																\
