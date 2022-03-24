@@ -17,9 +17,8 @@ do {																\
 	}																\
 } while(0)
 
-#define _i(i, j, k) (((k) + 1) * (n_x + 2) * (n_y + 2) + ((j) + 1) * (n_x + 2) + (i) + 1)
-
-#define _ib(i, j, k) ((k) * nb_x * nb_y + (j) * nb_x + (i))
+#define _i(i, j, k) ((k + 1) * (n_x + 2) * (n_y + 2) + (j + 1) * (n_x + 2) + i + 1)
+#define _ib(i, j, k) (k * nb_x * nb_y + j * nb_x + i)
 
 
 __global__ void kernalCompute(double *data, double *next, int n_x, int n_y, int n_z, double hx, double hy, double hz) {
@@ -36,9 +35,8 @@ __global__ void kernalCompute(double *data, double *next, int n_x, int n_y, int 
 		k = l / (n_x * n_y);
 		next[_i(i, j, k)] = 0.5 * ((data[_i(i + 1, j, k)] + data[_i(i - 1, j, k)]) / (hx * hx) +
 											(data[_i(i, j + 1, k)] + data[_i(i, j - 1, k)]) / (hy * hy) +
-											(data[_i(i, j, k + 1)] + data[_i(i, j, k - 1)]) / (hz * hz)) / 
+											(data[_i(i, j, k + 1)] + data[_i(i, j, k - 1)]) / (hz * hz)) /
 												(1.0 / (hx * hx) + 1.0 / (hy * hy) + 1.0 / (hz * hz));
-		// printf("%f ", next[_i(i, j, -1)]);
 	}
 }
 
@@ -169,19 +167,15 @@ int main(int argc, char *argv[]) {
 	MPI_Init(&argc, &argv);
 	MPI_Comm_size(MPI_COMM_WORLD, &numproc);
 	MPI_Comm_rank(MPI_COMM_WORLD, &id);
-	MPI_Get_processor_name(proc_name, &proc_name_len);	
+	MPI_Get_processor_name(proc_name, &proc_name_len);
 
 	CSC(cudaGetDeviceCount(&gpu_count));
 	CSC(cudaSetDevice(id % gpu_count));
 
-
-	// fprintf(stderr, "proc %d(%d) on %s\n", id, numproc, proc_name);
-	// fflush(stderr);
-
 	MPI_Barrier(MPI_COMM_WORLD);
 
-	if (id == 0) {		
-		scanf("%d%d%d",&nb_x,&nb_y,&nb_z );	
+	if (id == 0) {
+		scanf("%d%d%d",&nb_x,&nb_y,&nb_z );
 		scanf("%d%d%d",&n_x,&n_y,&n_z );
 		scanf("%s", file_path);
 		scanf("%lf",&eps);
@@ -189,7 +183,7 @@ int main(int argc, char *argv[]) {
 		scanf("%lf%lf%lf%lf%lf%lf",&bc_front,&bc_back, &bc_left, &bc_right, &bc_down, &bc_up);
 		scanf("%lf",&u_0);
 	}
-	
+
 
 	MPI_Bcast(&n_x, 1, MPI_INT, 0, MPI_COMM_WORLD);
 	MPI_Bcast(&n_y, 1, MPI_INT, 0, MPI_COMM_WORLD);
@@ -215,11 +209,11 @@ int main(int argc, char *argv[]) {
 	jb = (id / nb_x) % nb_y;
 	kb = id / (nb_x * nb_y);
 
-	hx = lx / (double)(n_x * nb_x);	
+	hx = lx / (double)(n_x * nb_x);
 	hy = ly / (double)(n_y * nb_y);
 	hz = lz / (double)(n_z * nb_z);
 
-	data = (double *)malloc(sizeof(double) * (n_x + 2) * (n_y + 2) * (n_z + 2));	
+	data = (double *)malloc(sizeof(double) * (n_x + 2) * (n_y + 2) * (n_z + 2));
 
 	double *dev_data, *dev_next, *dev_buff;
 	CSC(cudaMalloc(&dev_data, sizeof(double) * (n_x + 2) * (n_y + 2) * (n_z + 2)));
@@ -236,10 +230,10 @@ int main(int argc, char *argv[]) {
 	CSC(cudaMalloc(&dev_buff, sizeof(double) * (n_max1 + 2) * (n_max2 + 2)));
 
 
-	if (id == 0) {	
+	if (id == 0) {
 		fprintf(stderr, "%f %f %f %f %f %f %f %f %f %f %f %f %f\n", lx, ly, lz, hx, hy, hz, bc_front, bc_back, bc_left, bc_right, bc_down, bc_up, u_0);
 		fprintf(stderr, "%f %d %d %d %d %d %d\n", eps, nb_x, nb_y, nb_z, n_x, n_y, n_z);
-		fflush(stderr);	
+		fflush(stderr);
 	}
 
 	for(i = 0; i < n_x; i++)					// Инициализация блока
@@ -247,19 +241,19 @@ int main(int argc, char *argv[]) {
 			for(k = 0; k < n_z; k++)
 				data[_i(i, j, k)] = u_0;
 
-	for(i = -1; i <= n_x; i++) {				
+	for(i = -1; i <= n_x; i++) {
 		for(j = -1; j <= n_y; j++) {
 			data[_i(i, j, -1)] = bc_front;
 			data[_i(i, j, n_z)] = bc_back;
 		}
 	}
-	for(i = -1; i <= n_x; i++) {				
+	for(i = -1; i <= n_x; i++) {
 		for(k = -1; k <= n_z; k++) {
 			data[_i(i, -1, k)] = bc_down;
 			data[_i(i, n_y, k)] = bc_up;
 		}
 	}
-	for(j = -1; j <= n_y; j++) {				
+	for(j = -1; j <= n_y; j++) {
 		for(k = -1; k <= n_z; k++) {
 			data[_i(-1, j, k)] = bc_left;
 			data[_i(n_x, j, k)] = bc_right;
@@ -336,7 +330,7 @@ int main(int argc, char *argv[]) {
 				if (kb > 0) {
 					kernalIJNt_to_gbuff<<<64, 64>>>(dev_data, dev_buff, n_x, n_y, n_z, 0);
 					CSC(cudaMemcpy(buffs, dev_buff, sizeof(double) * n_x * n_y, cudaMemcpyDeviceToHost));
-					
+
 					MPI_Sendrecv(buffs, n_x * n_y, MPI_DOUBLE, _ib(ib, jb, kb - 1), id,
 								buffr, n_x * n_y, MPI_DOUBLE, _ib(ib, jb, kb - 1), _ib(ib, jb, kb - 1), MPI_COMM_WORLD, &status);
 
@@ -345,31 +339,20 @@ int main(int argc, char *argv[]) {
 				}
 			} else {
 				if (kb + 1 < nb_z) {
-
-					// for(i = 0; i < n_x; i++)
-					// 	for(j = 0; j < n_y; j++)
-					// 		buffs[i * n_y + j] = data[_i(i, j, n_z - 1)];
-
 					kernalIJNt_to_gbuff<<<64, 64>>>(dev_data, dev_buff, n_x, n_y, n_z, n_z - 1);
 					CSC(cudaMemcpy(buffs, dev_buff, sizeof(double) * n_x * n_y, cudaMemcpyDeviceToHost));
 
 					MPI_Sendrecv(buffs, n_x * n_y, MPI_DOUBLE, _ib(ib, jb, kb + 1), id,
 								buffr, n_x * n_y, MPI_DOUBLE, _ib(ib, jb, kb + 1), _ib(ib, jb, kb + 1), MPI_COMM_WORLD, &status);
-					
+
 					CSC(cudaMemcpy(dev_buff, buffr, sizeof(double) * n_x * n_y, cudaMemcpyHostToDevice));
 					kernalIJNt_from_gbuff<<<64, 64>>>(dev_data, dev_buff, n_x, n_y, n_z, n_z);
-
-					// for(i = 0; i < n_x; i++)
-					// 	for(j = 0; j < n_y; j++)
-					// 		data[_i(i, j, n_z)] = buffr[i * n_y + j];
 				}
 			}
 		}
 
 
 		MPI_Barrier(MPI_COMM_WORLD);
-
-		// CSC(cudaMemcpy(data, dev_data, sizeof(double) * (n_x + 2) * (n_y + 2) * (n_z + 2), cudaMemcpyDeviceToHost));
 
 		kernalCompute<<<64, 64>>>(dev_data, dev_next, n_x, n_y, n_z, hx, hy, hz);
 		CSC(cudaGetLastError());
@@ -378,7 +361,6 @@ int main(int argc, char *argv[]) {
 		dev_next = dev_data;
 		dev_data = temp;
 
-	
 		max_dif_l = 0;
 
 		kernalComputeDiff<<<64, 64>>>(dev_data, dev_next, n_x, n_y, n_z);
@@ -387,17 +369,16 @@ int main(int argc, char *argv[]) {
 		data_tr = thrust::device_pointer_cast(dev_next);
 
 		max_dif_l = *(thrust::max_element(data_tr, data_tr + (n_x + 2) * (n_y + 2) * (n_z + 2)));
-		// printf("\nFFFFF %f\n", max_dif_l);
+
 		CSC(cudaMemcpy(dev_next, dev_data, sizeof(double) * (n_x + 2) * (n_y + 2) * (n_z + 2), cudaMemcpyDeviceToDevice));
 
 		MPI_Allreduce(&max_dif_l, &max_dif, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
 
-		if(max_dif < eps) {
+		if (max_dif < eps) {
 			fprintf(stderr, "e %f, max_dif_l %f, max_dif%f, it%d\n", eps, max_dif_l, max_dif, it);
-			fflush(stderr);	
+			fflush(stderr);
 			break;
 		}
-		
 	}
 
 	CSC(cudaMemcpy(data, dev_data, sizeof(double) * (n_x + 2) * (n_y + 2) * (n_z + 2), cudaMemcpyDeviceToHost));
@@ -435,10 +416,9 @@ int main(int argc, char *argv[]) {
 	MPI_File_delete(file_path, MPI_INFO_NULL);
 	MPI_File_open(MPI_COMM_WORLD, file_path, MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &fp);
 
-	MPI_File_set_view(fp, sizeof(char) * (n_x * ib + n_x * nb_x * n_y * jb + n_x * nb_x * n_y * nb_y * n_z * kb) * print_size, MPI_CHAR, gridT, "native", MPI_INFO_NULL);               
+	MPI_File_set_view(fp, sizeof(char) * (n_x * ib + n_x * nb_x * n_y * jb + n_x * nb_x * n_y * nb_y * n_z * kb) * print_size, MPI_CHAR, gridT, "native", MPI_INFO_NULL);
 	MPI_File_write_all(fp, str, n_x * n_y * n_z * print_size, MPI_CHAR, &status);
 
-	
 	MPI_File_close(&fp);
 
 	free(data);
