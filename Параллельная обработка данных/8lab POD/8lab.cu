@@ -6,6 +6,8 @@
 #include <thrust/device_vector.h>
 #include <thrust/extrema.h>
 
+using namespace std;
+
 #define CSC(call)                                                   \
 do {                                                                \
     cudaError_t res = call;                                         \

@@ -96,9 +96,10 @@ int main() {
 
 	for (int i = 1; pow(2, i) <= upd_n; i++) {
 		for (int j = i; j >= 1; j--) {
-			if (j <= 9)
+			if (j <= 9) {
 				B_shared <<<64, 64>>> (dev_arr, j, upd_n, i);
-			else
+				break;
+			} else
 				B_global <<<64, 128>>> (dev_arr, j, upd_n, i);
 			CSC(cudaDeviceSynchronize());
 			CSC(cudaGetLastError());
