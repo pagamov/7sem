@@ -213,6 +213,8 @@ int main(int argc, char* argv[]) {
 			CSC(cudaMemcpy(buff, dev_buff, sizeof(double) * dim[0] * dim[1], cudaMemcpyDeviceToHost));
 			MPI_Bsend(buff, dim[0] * dim[1], MPI_DOUBLE, _ib(ib, jb, kb - 1), id, MPI_COMM_WORLD);
 		}
+        
+        MPI_Barrier(MPI_COMM_WORLD);
 
 		if (ib > 0) {
 			MPI_Recv(buff, dim[1] * dim[2], MPI_DOUBLE, _ib(ib - 1, jb, kb), _ib(ib - 1, jb, kb), MPI_COMM_WORLD, &status);
