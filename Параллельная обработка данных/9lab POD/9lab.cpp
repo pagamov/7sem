@@ -126,7 +126,7 @@ int main(int argc, char* argv[]) {
 
 	int buffer_size;
 	MPI_Pack_size(max(dim[0], dim[1]) * max(dim[1], dim[2]), MPI_DOUBLE, MPI_COMM_WORLD, &buffer_size);
-	buffer_size = 6 * (buffer_size + MPI_BSEND_OVERHEAD);
+	buffer_size = 12 * (buffer_size + MPI_BSEND_OVERHEAD);
 	double* buffer = (double *)malloc(buffer_size);
 	MPI_Buffer_attach(buffer, buffer_size);
 	double * allgbuff = (double *)malloc(sizeof(double) * box[0] * box[1] * box[2]);
@@ -187,7 +187,7 @@ int main(int argc, char* argv[]) {
 			MPI_Bsend(data, 1, front_send, _ib(ib, jb - 1, kb), id, MPI_COMM_WORLD);
 		if (kb > 0)
 			MPI_Bsend(data, 1, down_send, _ib(ib, jb, kb - 1), id, MPI_COMM_WORLD);
-
+		MPI_Barrier(MPI_COMM_WORLD);
 		if (ib > 0)
 			MPI_Recv(data, 1, left_recv, _ib(ib - 1, jb, kb), _ib(ib - 1, jb, kb), MPI_COMM_WORLD, &status);
 		if (jb > 0)
@@ -203,7 +203,10 @@ int main(int argc, char* argv[]) {
 
 		MPI_Barrier(MPI_COMM_WORLD);
 		diff = 0.0;
-		#pragma omp parallel shared(data, next) reduction(max:diff) {
+		for (int i = 0; i < box[0] * box[1] * box[2]; i++)
+			allgbuff[i] = 0.0;
+		#pragma omp parallel shared(data, next) reduction(max:diff)
+		{
 			int idx = omp_get_thread_num();
 			int shift = omp_get_num_threads();
 			for (int t = idx; t < dim[0] * dim[1] * dim[2]; t += shift) {
@@ -218,6 +221,7 @@ int main(int argc, char* argv[]) {
 				diff = fmax(diff, fabs(next[_i(i, j, k)] - data[_i(i, j, k)]));
 			}
 		}
+		MPI_Barrier(MPI_COMM_WORLD);
 
 		MPI_Allgather(&diff, 1, MPI_DOUBLE, allgbuff, 1, MPI_DOUBLE, MPI_COMM_WORLD);
 		MPI_Barrier(MPI_COMM_WORLD);
@@ -271,7 +275,7 @@ int main(int argc, char* argv[]) {
 	MPI_Type_free(&up_send);
 	MPI_Type_free(&up_recv);
 	MPI_Finalize();
-	free(allgbuff);
+	// free(allgbuff);
 	free(data);
 	free(next);
 	free(bf);
