@@ -215,6 +215,7 @@ int main(int argc, char* argv[]) {
 				diff = fmax(diff, fabs(next[_i(i, j, k)] - data[_i(i, j, k)]));
 			}
 		}
+		MPI_Barrier(MPI_COMM_WORLD);
 
 		MPI_Barrier(MPI_COMM_WORLD);
 		MPI_Allgather(&diff, 1, MPI_DOUBLE, allgbuff, 1, MPI_DOUBLE, MPI_COMM_WORLD);
