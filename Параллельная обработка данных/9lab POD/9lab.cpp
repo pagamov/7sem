@@ -126,7 +126,7 @@ int main(int argc, char* argv[]) {
 	next = (double*)malloc(sizeof(double) * (nx + 2) * (ny + 2) * (nz + 2));
 
 	int buffer_size;
-	MPI_Pack_size(max(nx, ny) * max(ny, nz), MPI_DOUBLE, MPI_COMM_WORLD, &buffer_size);
+	MPI_Pack_size(std::max(nx, ny) * std::max(ny, nz), MPI_DOUBLE, MPI_COMM_WORLD, &buffer_size);
 	buffer_size = 6 * (buffer_size + MPI_BSEND_OVERHEAD);
 	double * buffer = (double *)malloc(buffer_size);
 	MPI_Buffer_attach(buffer, buffer_size);
