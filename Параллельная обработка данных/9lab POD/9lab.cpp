@@ -117,7 +117,7 @@ int main(int argc, char* argv[]) {
 	MPI_Type_commit(&back_recv);
 
 	MPI_Datatype up_recv;
-	int starts_z[] = {dim[2] + 1, 1,  1};
+	int starts_z[] = {dim[2] + 1, 1, 1};
 	MPI_Type_create_subarray(3, sizes, subsizes_du, starts_z, MPI_ORDER_C, MPI_DOUBLE, &up_recv);
 	MPI_Type_commit(&up_recv);
 
@@ -187,7 +187,7 @@ int main(int argc, char* argv[]) {
 			MPI_Bsend(data, 1, front_send, _ib(ib, jb - 1, kb), id, MPI_COMM_WORLD);
 		if (kb > 0)
 			MPI_Bsend(data, 1, down_send, _ib(ib, jb, kb - 1), id, MPI_COMM_WORLD);
-
+		MPI_Barrier(MPI_COMM_WORLD);
 		if (ib > 0)
 			MPI_Recv(data, 1, left_recv, _ib(ib - 1, jb, kb), _ib(ib - 1, jb, kb), MPI_COMM_WORLD, &status);
 		if (jb > 0)
